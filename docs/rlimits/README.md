@@ -84,3 +84,6 @@ RLIMIT_RTTIME: limit (in microseconds) on the amount of CPU time that a process 
 ```
 
 Here we can inspect all the resources types. For our needs, the most interest types are `RLIMIT_CPU`, `RLIMIT_DATA`, `RLIMIT_NPROC` and `RLIMIT_MEMLOCK`(?).
+
+## Sources
+https://man7.org/linux/man-pages/man2/getrlimit.2.html
