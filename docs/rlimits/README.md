@@ -85,5 +85,10 @@ RLIMIT_RTTIME: limit (in microseconds) on the amount of CPU time that a process 
 
 Here we can inspect all the resources types. For our needs, the most interest types are `RLIMIT_CPU`, `RLIMIT_DATA`, `RLIMIT_NPROC` and `RLIMIT_MEMLOCK`(?).
 
+## Problems
+`RLIMITS_AS` allow to restrict allocating memory by `malloc`, but `malloc` can already have preallocated chunks of memory, so result can be felt only after amount of calls.
+For example, if we setting `Soft limit` to 16 bytes, we still can call `int *a = new int[10000];`.
+
 ## Sources
-https://man7.org/linux/man-pages/man2/getrlimit.2.html
+- man -- https://man7.org/linux/man-pages/man2/getrlimit.2.html
+- `RLIMITS_AS` problem -- https://stackoverflow.com/a/41360757
