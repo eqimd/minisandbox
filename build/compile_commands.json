@@ -1,0 +1,13 @@
+[
+{
+  "directory": "/home/eqimd/programming/linuxprog/sandbox-linux/build",
+  "command": "/bin/x86_64-linux-gnu-g++-11   -I../src  -g   -std=gnu++2a -o CMakeFiles/sandbox-linux.dir/src/main.cpp.o -c /home/eqimd/programming/linuxprog/sandbox-linux/src/main.cpp",
+  "file": "/home/eqimd/programming/linuxprog/sandbox-linux/src/main.cpp"
+},
+
+{
+  "directory": "/home/eqimd/programming/linuxprog/sandbox-linux/build",
+  "command": "/bin/x86_64-linux-gnu-g++-11   -I../src  -g   -std=gnu++2a -o CMakeFiles/sandbox-linux.dir/src/container/Container.cpp.o -c /home/eqimd/programming/linuxprog/sandbox-linux/src/container/Container.cpp",
+  "file": "/home/eqimd/programming/linuxprog/sandbox-linux/src/container/Container.cpp"
+}
+]
