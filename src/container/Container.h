@@ -16,10 +16,15 @@ public:
         milliseconds time_execution_limit_ms,
         bytes ram_limit_bytes
     );
-    void execute();
+    void run();
     int get_pid();
 
 private:
+    fs::path _path;
+    int _flags;
+    milliseconds _time_exec;
+    bytes _ram_limit;
+
     void start_ram_monitoring();
     void start_time_monitoring();
 };
