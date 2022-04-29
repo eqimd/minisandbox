@@ -13,7 +13,7 @@
 
 #include "Container.h"
 
-constexpr char* NEW_ROOT = "newroot";
+constexpr char* NEW_ROOT = ".newroot";
 constexpr char* PUT_OLD = "put_old";
 
 
@@ -34,7 +34,7 @@ int enter_pivot_root(void* arg) {
     char* binpath = reinterpret_cast<char*>(arg);
     // std::cout << binpath << std::endl;
 
-    // drop_privileges();
+    drop_privileges();
 
     fs::create_directories(PUT_OLD);
     
