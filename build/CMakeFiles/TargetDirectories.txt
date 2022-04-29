@@ -1,3 +1,0 @@
-/home/eqimd/sandbox-linux/build/CMakeFiles/rebuild_cache.dir
-/home/eqimd/sandbox-linux/build/CMakeFiles/edit_cache.dir
-/home/eqimd/sandbox-linux/build/CMakeFiles/sandbox-linux.dir
