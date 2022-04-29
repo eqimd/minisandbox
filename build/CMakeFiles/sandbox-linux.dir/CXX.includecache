@@ -1,0 +1,42 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/eqimd/sandbox-linux/src/container/Container.cpp
+sched.h
+-
+errno.h
+-
+sys/mman.h
+-
+string.h
+-
+sys/mount.h
+-
+sys/syscall.h
+-
+unistd.h
+-
+signal.h
+-
+iostream
+-
+fstream
+-
+sys/types.h
+-
+sys/wait.h
+-
+Container.h
+/home/eqimd/sandbox-linux/src/container/Container.h
+
+/home/eqimd/sandbox-linux/src/container/Container.h
+filesystem
+-
+stdint.h
+-
+

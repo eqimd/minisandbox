@@ -2,7 +2,7 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "/home/eqimd/programming/linuxprog/sandbox-linux/sandbox-linux"
+			"path" : "/home/eqimd/sandbox-linux/sandbox-linux"
 		}
 	],
 	"backtrace" : 1,
@@ -52,7 +52,7 @@
 			[
 				{
 					"backtrace" : 2,
-					"path" : "/home/eqimd/programming/linuxprog/sandbox-linux/src"
+					"path" : "/home/eqimd/sandbox-linux/src"
 				}
 			],
 			"language" : "CXX",

@@ -25,6 +25,10 @@ private:
     milliseconds _time_exec;
     bytes _ram_limit;
 
+    void mount_to_newroot(const char* mount_from, const char* mount_to, int flags);
+    void bind_new_root();
+    void unmount(const char* path);
+
     void start_ram_monitoring();
     void start_time_monitoring();
 };

@@ -38,7 +38,7 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "sandbox-linux::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-sandbox-linux-Debug-890e368ab0d234f3418a.json",
+					"jsonFile" : "target-sandbox-linux-Debug-9791a25264cc4badb8e9.json",
 					"name" : "sandbox-linux",
 					"projectIndex" : 0
 				}
@@ -48,8 +48,8 @@
 	"kind" : "codemodel",
 	"paths" : 
 	{
-		"build" : "/home/eqimd/programming/linuxprog/sandbox-linux/build",
-		"source" : "/home/eqimd/programming/linuxprog/sandbox-linux"
+		"build" : "/home/eqimd/sandbox-linux/build",
+		"source" : "/home/eqimd/sandbox-linux"
 	},
 	"version" : 
 	{

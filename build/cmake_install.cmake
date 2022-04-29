@@ -1,4 +1,4 @@
-# Install script for directory: /home/eqimd/programming/linuxprog/sandbox-linux
+# Install script for directory: /home/eqimd/sandbox-linux
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -45,5 +45,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/eqimd/programming/linuxprog/sandbox-linux/build/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/eqimd/sandbox-linux/build/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
