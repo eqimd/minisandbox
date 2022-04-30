@@ -1,6 +1,11 @@
-#include "sandbox/Sandbox.h"
+#include "sandbox/sandbox.h"
 
 int main(int argc, char* argv[]) {
-    sandbox_ns::Sandbox cont(argv[1], 0, 0, 0);
-    cont.run();
+    struct sandbox_data data = {};
+    data.executable_path = argv[1];
+    data.perm_flags = 0;
+    data.ram_limit_bytes = 0;
+    data.time_execution_limit_ms = 0;
+
+    run_sandbox(data);
 }

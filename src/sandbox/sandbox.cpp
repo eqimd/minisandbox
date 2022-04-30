@@ -11,13 +11,27 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include "Sandbox.h"
+#include "sandbox.h"
 
 constexpr char* NEW_ROOT = ".newroot";
 constexpr char* PUT_OLD = "put_old";
 
 
-namespace sandbox_ns {
+void mount_to_newroot(const char* mount_from, const char* mount_to, int flags) {
+    errno = 0;
+    if (mount(mount_from, mount_to, NULL, flags, NULL) == -1) {
+        throw std::runtime_error(std::string(strerror(errno)));
+    }
+}
+
+void bind_new_root() {
+    fs::create_directory(NEW_ROOT);
+
+    errno = 0;
+    if (mount(NEW_ROOT, NEW_ROOT, NULL, MS_BIND | MS_REC, NULL) == -1) {
+        throw std::runtime_error(std::string(strerror(errno)));
+    }
+}
 
 void drop_privileges() {
     errno = 0;
@@ -46,11 +60,11 @@ int enter_pivot_root(void* arg) {
     
     fs::current_path("/");
 
+    // make path /put_old/<path_to_bin>
     char fullpath_bin[100];
     fullpath_bin[0] = '/';
     strcat(fullpath_bin, PUT_OLD);
     strcat(fullpath_bin, binpath);
-    // make path /put_old/<path_to_bin>
 
     // if (mount(path_to_bin.c_str(), path_to_bin.filename().c_str(), NULL, MS_BIND, NULL) == -1) {
     //     throw std::runtime_error(std::string(strerror(errno)));
@@ -73,26 +87,14 @@ int enter_pivot_root(void* arg) {
     return 0;
 }
 
-Sandbox::Sandbox(
-    const fs::path& path_to_binary,
-    int perm_flags,
-    milliseconds time_execution_limit_ms,
-    bytes ram_limit_bytes
-) {
-    _path = path_to_binary;
-    _flags = perm_flags;
-    _time_exec = time_execution_limit_ms;
-    _ram_limit = ram_limit_bytes;
-}
-
-void Sandbox::run() {
+void run_sandbox(const struct sandbox_data& data) {
     // TODO: Add stack size to constructor
     int STACK_SIZE = 10240;
     void* stack = mmap(NULL, STACK_SIZE, PROT_READ | PROT_WRITE,
                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
     void* stack_top = stack + STACK_SIZE;
 
-    std::string binpath = fs::absolute(_path).string();
+    std::string binpath = fs::absolute(data.executable_path).string();
 
     bind_new_root();
     fs::current_path(NEW_ROOT);
@@ -109,10 +111,10 @@ void Sandbox::run() {
     fs::create_directories("usr/lib64");
     mount_to_newroot("/usr/lib64", "usr/lib64", MS_BIND | MS_REC);
 
-    std::ofstream bin_to_run(_path.filename());
+    // std::ofstream bin_to_run(data.path_to_binary.filename());
     // std::cout << binpath << " " << _path.filename() << std::endl;
-    mount_to_newroot(binpath.c_str(), _path.filename().c_str(), MS_BIND | MS_REC | MS_RDONLY);
-    bin_to_run.close();
+    // mount_to_newroot(binpath.c_str(), data.path_to_binary.filename().c_str(), MS_BIND | MS_REC | MS_RDONLY);
+    // bin_to_run.close();
 
     errno = 0;
     if (mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL) == -1) {
@@ -133,21 +135,3 @@ void Sandbox::run() {
         throw std::runtime_error(std::string(strerror(errno)));
     }
 }
-
-void Sandbox::mount_to_newroot(const char* mount_from, const char* mount_to, int flags) {
-    errno = 0;
-    if (mount(mount_from, mount_to, NULL, flags, NULL) == -1) {
-        throw std::runtime_error(std::string(strerror(errno)));
-    }
-}
-
-void Sandbox::bind_new_root() {
-    fs::create_directory(NEW_ROOT);
-
-    errno = 0;
-    if (mount(NEW_ROOT, NEW_ROOT, NULL, MS_BIND | MS_REC, NULL) == -1) {
-        throw std::runtime_error(std::string(strerror(errno)));
-    }
-}
-
-};

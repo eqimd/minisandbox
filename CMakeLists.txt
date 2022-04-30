@@ -10,6 +10,6 @@ include_directories("src")
 add_executable(
         ${PROJECT_NAME}
         src/main.cpp
-        src/sandbox/Sandbox.cpp
-        src/sandbox/Sandbox.h
+        src/sandbox/sandbox.cpp
+        src/sandbox/sandbox.h
 )
