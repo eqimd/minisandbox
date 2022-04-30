@@ -3,14 +3,14 @@
 
 namespace fs = std::filesystem;
 
-namespace sandbox {
+namespace sandbox_ns {
 
 using milliseconds = uint64_t;
 using bytes = uint64_t;
 
-class Container {
+class Sandbox {
 public:
-    Container(
+    Sandbox(
         const fs::path& path_to_binary,
         int perm_flags,
         milliseconds time_execution_limit_ms,

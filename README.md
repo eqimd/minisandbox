@@ -3,5 +3,5 @@
 ### Usage
 Run with superuser privileges:
 ```bash
-./sandbox <executable>
+./minisandbox <executable>
 ```

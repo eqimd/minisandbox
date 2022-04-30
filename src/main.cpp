@@ -1,6 +1,6 @@
-#include "container/Container.h"
+#include "sandbox/Sandbox.h"
 
 int main(int argc, char* argv[]) {
-    sandbox::Container cont(argv[1], 0, 0, 0);
+    sandbox_ns::Sandbox cont(argv[1], 0, 0, 0);
     cont.run();
 }

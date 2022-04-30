@@ -11,13 +11,13 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include "Container.h"
+#include "Sandbox.h"
 
 constexpr char* NEW_ROOT = ".newroot";
 constexpr char* PUT_OLD = "put_old";
 
 
-namespace sandbox {
+namespace sandbox_ns {
 
 void drop_privileges() {
     errno = 0;
@@ -39,11 +39,6 @@ int enter_pivot_root(void* arg) {
     fs::create_directories(PUT_OLD);
     
     errno = 0;
-    if (mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL) == -1) {
-        throw std::runtime_error(std::string(strerror(errno)));
-    }
-    
-    errno = 0;
     if (syscall(SYS_pivot_root, ".", PUT_OLD) == -1) {
         std::cout << "pivot_root " << errno << std::endl;
         throw std::runtime_error(std::string(strerror(errno)));
@@ -55,6 +50,8 @@ int enter_pivot_root(void* arg) {
     fullpath_bin[0] = '/';
     strcat(fullpath_bin, PUT_OLD);
     strcat(fullpath_bin, binpath);
+    // make path /put_old/<path_to_bin>
+
     // if (mount(path_to_bin.c_str(), path_to_bin.filename().c_str(), NULL, MS_BIND, NULL) == -1) {
     //     throw std::runtime_error(std::string(strerror(errno)));
     // }
@@ -76,7 +73,7 @@ int enter_pivot_root(void* arg) {
     return 0;
 }
 
-Container::Container(
+Sandbox::Sandbox(
     const fs::path& path_to_binary,
     int perm_flags,
     milliseconds time_execution_limit_ms,
@@ -88,7 +85,7 @@ Container::Container(
     _ram_limit = ram_limit_bytes;
 }
 
-void Container::run() {
+void Sandbox::run() {
     // TODO: Add stack size to constructor
     int STACK_SIZE = 10240;
     void* stack = mmap(NULL, STACK_SIZE, PROT_READ | PROT_WRITE,
@@ -118,6 +115,11 @@ void Container::run() {
     bin_to_run.close();
 
     errno = 0;
+    if (mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL) == -1) {
+        throw std::runtime_error(std::string(strerror(errno)));
+    }
+
+    errno = 0;
     pid_t pid = clone(enter_pivot_root, stack_top, CLONE_NEWNS | CLONE_NEWPID | SIGCHLD, (void*)(binpath.c_str()));
     if (pid == -1) {
         throw std::runtime_error(std::string(strerror(errno)));
@@ -132,14 +134,14 @@ void Container::run() {
     }
 }
 
-void Container::mount_to_newroot(const char* mount_from, const char* mount_to, int flags) {
+void Sandbox::mount_to_newroot(const char* mount_from, const char* mount_to, int flags) {
     errno = 0;
     if (mount(mount_from, mount_to, NULL, flags, NULL) == -1) {
         throw std::runtime_error(std::string(strerror(errno)));
     }
 }
 
-void Container::bind_new_root() {
+void Sandbox::bind_new_root() {
     fs::create_directory(NEW_ROOT);
 
     errno = 0;
