@@ -3,5 +3,5 @@
 ### Usage
 Run with superuser privileges:
 ```bash
-./minisandbox <executable>
+./minisandbox <executable> <path to root fs>
 ```

@@ -13,22 +13,19 @@
 
 #include "sandbox.h"
 
-constexpr char* NEW_ROOT = ".newroot";
-constexpr char* PUT_OLD = "put_old";
+constexpr char* PUT_OLD = ".put_old";
 
 
-void mount_to_newroot(const char* mount_from, const char* mount_to, int flags) {
+void mount_to_new_root(const char* mount_from, const char* mount_to, int flags) {
     errno = 0;
     if (mount(mount_from, mount_to, NULL, flags, NULL) == -1) {
         throw std::runtime_error(std::string(strerror(errno)));
     }
 }
 
-void bind_new_root() {
-    fs::create_directory(NEW_ROOT);
-
+void bind_new_root(const char* new_root) {
     errno = 0;
-    if (mount(NEW_ROOT, NEW_ROOT, NULL, MS_BIND | MS_REC, NULL) == -1) {
+    if (mount(new_root, new_root, NULL, MS_BIND | MS_REC, NULL) == -1) {
         throw std::runtime_error(std::string(strerror(errno)));
     }
 }
@@ -87,6 +84,17 @@ int enter_pivot_root(void* arg) {
     return 0;
 }
 
+void unmount(const char* path, int flags) {
+    errno = 0;
+    if (umount2(path, flags) == -1) {
+        throw std::runtime_error(
+            "Could not unmount " +
+            std::string(path) + "\n" +
+            std::string(strerror(errno))
+        );
+    }
+}
+
 void run_sandbox(const struct sandbox_data& data) {
     // TODO: Add stack size to constructor
     int STACK_SIZE = 10240;
@@ -96,20 +104,8 @@ void run_sandbox(const struct sandbox_data& data) {
 
     std::string binpath = fs::absolute(data.executable_path).string();
 
-    bind_new_root();
-    fs::current_path(NEW_ROOT);
-
-    fs::create_directories("lib");
-    mount_to_newroot("/lib", "lib", MS_BIND | MS_REC);
-
-    fs::create_directories("lib64");
-    mount_to_newroot("/lib64", "lib64", MS_BIND | MS_REC);
-
-    fs::create_directories("usr/lib");
-    mount_to_newroot("/usr/lib", "usr/lib", MS_BIND | MS_REC);
-    
-    fs::create_directories("usr/lib64");
-    mount_to_newroot("/usr/lib64", "usr/lib64", MS_BIND | MS_REC);
+    bind_new_root(data.rootfs_path.c_str());
+    fs::current_path(data.rootfs_path);
 
     // std::ofstream bin_to_run(data.path_to_binary.filename());
     // std::cout << binpath << " " << _path.filename() << std::endl;
@@ -128,10 +124,6 @@ void run_sandbox(const struct sandbox_data& data) {
     }
     int statloc;
     while (waitpid(pid, &statloc, 0) > 0) {}
-    
-    errno = 0;
-    if (umount2(".", MNT_DETACH) == -1) {
-        std::cerr << "Could not unmount new root." << std::endl;
-        throw std::runtime_error(std::string(strerror(errno)));
-    }
+
+    unmount(".", MNT_DETACH);
 }

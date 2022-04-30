@@ -8,6 +8,7 @@ using bytes = uint64_t;
 
 struct sandbox_data {
     fs::path executable_path;
+    fs::path rootfs_path;
     int perm_flags;
     milliseconds time_execution_limit_ms;
     bytes ram_limit_bytes;
