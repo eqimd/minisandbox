@@ -12,6 +12,7 @@ struct sandbox_data {
     int perm_flags;
     milliseconds time_execution_limit_ms;
     bytes ram_limit_bytes;
+    bytes stack_size;
 };
 
 void run_sandbox(const struct sandbox_data& data);

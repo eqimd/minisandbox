@@ -6,6 +6,7 @@ int main(int argc, char* argv[]) {
     data.rootfs_path = argv[2];
     data.perm_flags = 0;
     data.ram_limit_bytes = 0;
+    data.stack_size = 10240;
     data.time_execution_limit_ms = 0;
 
     run_sandbox(data);

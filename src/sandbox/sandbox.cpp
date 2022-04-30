@@ -97,10 +97,9 @@ void unmount(const char* path, int flags) {
 
 void run_sandbox(const struct sandbox_data& data) {
     // TODO: Add stack size to constructor
-    int STACK_SIZE = 10240;
-    void* stack = mmap(NULL, STACK_SIZE, PROT_READ | PROT_WRITE,
+    void* stack = mmap(NULL, data.stack_size, PROT_READ | PROT_WRITE,
                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
-    void* stack_top = stack + STACK_SIZE;
+    void* stack_top = stack + data.stack_size;
 
     std::string binpath = fs::absolute(data.executable_path).string();
 
