@@ -41,75 +41,69 @@ void drop_privileges() {
     }
 }
 
-int enter_pivot_root(void* arg) {
-    char* binpath = reinterpret_cast<char*>(arg);
-    // std::cout << binpath << std::endl;
+void unmount(const char* path, int flags) {
+    errno = 0;
+    if (umount2(path, flags) == -1) {
+        throw std::runtime_error(
+            "Can not unmount " +
+            std::string(path) + ": " +
+            std::string(strerror(errno))
+        );
+    }
+}
 
+int enter_pivot_root(void* arg) {
     drop_privileges();
 
     fs::create_directories(PUT_OLD);
     
     errno = 0;
     if (syscall(SYS_pivot_root, ".", PUT_OLD) == -1) {
-        std::cout << "pivot_root " << errno << std::endl;
-        throw std::runtime_error(std::string(strerror(errno)));
+        throw std::runtime_error(
+            "pivot_root is not succeeded: " +
+            std::string(strerror(errno))
+        );
     }
     
     fs::current_path("/");
 
-    // make path /put_old/<path_to_bin>
-    char fullpath_bin[100];
-    fullpath_bin[0] = '/';
-    strcat(fullpath_bin, PUT_OLD);
-    strcat(fullpath_bin, binpath);
-
-    // if (mount(path_to_bin.c_str(), path_to_bin.filename().c_str(), NULL, MS_BIND, NULL) == -1) {
-    //     throw std::runtime_error(std::string(strerror(errno)));
-    // }
-
-    // errno = 0;
-    // if (umount2(PUT_OLD, MNT_DETACH) == -1) {
-    //     throw std::runtime_error(std::string(strerror(errno)));
-    // }
-    // std::cout << "here" << std::endl;
-
     errno = 0;
-    char* argv[1];
-    char* env[1];
-    if (execvpe(fullpath_bin, argv, env) == -1) {
-        std::cout << "exec " << errno << std::endl;
+    if (umount2(PUT_OLD, MNT_DETACH) == -1) {
         throw std::runtime_error(std::string(strerror(errno)));
     }
+
+    std::string exec_path = "/" + std::string(reinterpret_cast<char*>(arg));
+
+    char* argv[1];
+    char* env[1];
+
+    errno = 0;
+    if (execvpe(exec_path.c_str(), argv, env) == -1) {
+        throw std::runtime_error(
+            "Can not execute " +
+            exec_path + ": " +
+            std::string(strerror(errno))
+        );
+    }
+
+    unmount(".", MNT_DETACH);
 
     return 0;
 }
 
-void unmount(const char* path, int flags) {
-    errno = 0;
-    if (umount2(path, flags) == -1) {
-        throw std::runtime_error(
-            "Could not unmount " +
-            std::string(path) + "\n" +
-            std::string(strerror(errno))
-        );
-    }
-}
-
 void run_sandbox(const struct sandbox_data& data) {
-    // TODO: Add stack size to constructor
+    // Add checks: executable exists, it is ELF
+    // Add checks: root fs directory exists
+
+    fs::copy_file(data.executable_path, data.rootfs_path / data.executable_path);
+
     void* stack = mmap(NULL, data.stack_size, PROT_READ | PROT_WRITE,
                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
     void* stack_top = stack + data.stack_size;
 
-    std::string binpath = fs::absolute(data.executable_path).string();
 
     bind_new_root(data.rootfs_path.c_str());
     fs::current_path(data.rootfs_path);
-
-    // std::ofstream bin_to_run(data.path_to_binary.filename());
-    // std::cout << binpath << " " << _path.filename() << std::endl;
-    // mount_to_newroot(binpath.c_str(), data.path_to_binary.filename().c_str(), MS_BIND | MS_REC | MS_RDONLY);
-    // bin_to_run.close();
 
     errno = 0;
     if (mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL) == -1) {
@@ -117,12 +111,18 @@ void run_sandbox(const struct sandbox_data& data) {
     }
 
     errno = 0;
-    pid_t pid = clone(enter_pivot_root, stack_top, CLONE_NEWNS | CLONE_NEWPID | SIGCHLD, (void*)(binpath.c_str()));
+    pid_t pid = clone(
+        enter_pivot_root,
+        stack_top,
+        CLONE_NEWNS | CLONE_NEWPID | SIGCHLD,
+        (void*)(data.executable_path.filename().c_str())
+    );
     if (pid == -1) {
         throw std::runtime_error(std::string(strerror(errno)));
     }
+
     int statloc;
     while (waitpid(pid, &statloc, 0) > 0) {}
 
-    unmount(".", MNT_DETACH);
+    fs::remove(data.executable_path.filename());
 }
