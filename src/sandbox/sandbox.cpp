@@ -86,8 +86,6 @@ int enter_pivot_root(void* arg) {
         );
     }
 
-    unmount(".", MNT_DETACH);
-
     return 0;
 }
 
@@ -124,5 +122,6 @@ void run_sandbox(const struct sandbox_data& data) {
     int statloc;
     while (waitpid(pid, &statloc, 0) > 0) {}
 
+    unmount(".", MNT_DETACH);
     fs::remove(data.executable_path.filename());
 }
