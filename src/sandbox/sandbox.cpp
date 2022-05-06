@@ -15,7 +15,7 @@
 
 
 constexpr char* PUT_OLD = ".put_old";
-
+constexpr char* MINISANDBOX_EXEC = ".minisandbox_exec";
 
 namespace minisandbox {
 
@@ -74,8 +74,8 @@ sandbox::sandbox(
     milliseconds time_execution_limit_ms,
     bytes ram_limit_bytes,
     bytes stack_size
-) : executable_path(executable_path),
-    rootfs_path(rootfs_path),
+) : executable_path(fs::absolute(executable_path)),
+    rootfs_path(fs::absolute(rootfs_path)),
     perm_flags(perm_flags),
     time_execution_limit_ms(time_execution_limit_ms),
     ram_limit_bytes(ram_limit_bytes),
@@ -85,14 +85,17 @@ void sandbox::run() {
     // Add checks: executable exists, it is ELF
     // Add checks: root fs directory exists
 
-    fs::copy_file(executable_path, rootfs_path / executable_path);
-
     void* stack = mmap(NULL, stack_size, PROT_READ | PROT_WRITE,
                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
     void* stack_top = stack + stack_size;
 
     bind_new_root(rootfs_path.c_str());
     fs::current_path(rootfs_path);
+
+    fs::create_directory(MINISANDBOX_EXEC);
+
+    fs::path exec_in_sandbox = fs::path(MINISANDBOX_EXEC) / executable_path.filename();
+    fs::copy_file(executable_path, exec_in_sandbox);
 
     errno = 0;
     if (mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL) == -1) {
@@ -101,7 +104,7 @@ void sandbox::run() {
 
     errno = 0;
     void* exec_path_casted = reinterpret_cast<void*>(
-        const_cast<char*>((executable_path.filename().c_str()))
+        const_cast<char*>((exec_in_sandbox.c_str()))
     );
     pid_t pid = clone(
         enter_pivot_root,
@@ -117,7 +120,7 @@ void sandbox::run() {
     while (waitpid(pid, &statloc, 0) > 0) {}
 
     unmount(".", MNT_DETACH);
-    fs::remove(executable_path.filename());
+    fs::remove_all(MINISANDBOX_EXEC);
     munmap(stack, stack_size);
 }
 
