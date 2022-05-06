@@ -51,7 +51,7 @@ int enter_pivot_root(void* arg) {
     }
     fs::remove(PUT_OLD);
 
-    std::string exec_path = "/" + std::string(reinterpret_cast<char*>(arg));
+    fs::path exec_path = fs::absolute(reinterpret_cast<char*>(arg));
 
     char* argv[1];
     char* env[1];
@@ -60,7 +60,7 @@ int enter_pivot_root(void* arg) {
     if (execvpe(exec_path.c_str(), argv, env) == -1) {
         throw std::runtime_error(
             "Can not execute " +
-            exec_path + ": " +
+            exec_path.string() + ": " +
             std::string(strerror(errno))
         );
     }
