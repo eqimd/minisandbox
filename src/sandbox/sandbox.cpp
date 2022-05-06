@@ -49,6 +49,7 @@ int enter_pivot_root(void* arg) {
     if (umount2(PUT_OLD, MNT_DETACH) == -1) {
         throw std::runtime_error(std::string(strerror(errno)));
     }
+    fs::remove(PUT_OLD);
 
     std::string exec_path = "/" + std::string(reinterpret_cast<char*>(arg));
 
