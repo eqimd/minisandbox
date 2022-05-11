@@ -1,158 +1,196 @@
-#include <iostream>
-#include <unistd.h>
 #include <sys/ptrace.h>
-#include <sys/types.h>
-#include <sys/wait.h>
+#include <sys/syscall.h>
 #include <sys/user.h>
-#include <sys/reg.h>
-#include <cassert>
+#include <sys/wait.h>
+#include <sys/prctl.h>
+
+#include <linux/seccomp.h>
+#include <linux/filter.h>
+#include <linux/audit.h>
+
+#include <unistd.h>
+#include <signal.h>
+#include <seccomp.h>    // libseccomp-dev
+
+#include <iostream>
+#include <thread>
 #include <vector>
+#include <optional>
+#include <atomic>
 #include <unordered_map>
 
-using std::cout;
-using std::cerr;
-using std::endl;
-using std::vector;
-using std::unordered_map;
 
-constexpr int FORK_MAX = 5;
-int run = true;
+#define die(...)                                           \
+    do                                                     \
+    {                                                      \
+        fprintf(stderr, "[E:%s:%d] ", __FILE__, __LINE__); \
+        fprintf(stderr, __VA_ARGS__);                      \
+        fprintf(stderr, "\n");                             \
+        exit(1);                                           \
+    } while (0)
 
 
-void child2(int i) {
-    if (i == 0)
-        return;
-    cout << "child2 " << i << " start" << endl;
-    // if (raise(SIGSTOP))
-    //     cerr << "child: raise(SIGSTOP) failed" << endl;
-    pid_t pid = fork();
-    if (pid < 0)
-        cerr << "couldn't fork" << endl;
-    else if (pid == 0)
-        cout << "child2 " << i << " end" << endl;
-    else {
-        child2(i-1);
-        wait(NULL);
+constexpr int FORK_LIMIT_DEFAULT = 5;
+
+
+struct PidStatus {
+    enum State {
+        kAfterSysCall,
+        kBeforeSysCall  
+    };
+    
+    pid_t pid;
+    State current_state;
+    int lastsysno = 0;
+
+    PidStatus(pid_t pid_) : pid { pid_ }, current_state { kAfterSysCall } {
+        // std::cout << "TRACE NEW PID=" << pid << std::endl;
+        ptrace(PTRACE_SETOPTIONS, 
+               pid, 
+               0, 
+                PTRACE_O_TRACESYSGOOD 
+               | PTRACE_O_TRACESECCOMP 
+               | PTRACE_O_TRACEFORK 
+               | PTRACE_O_TRACECLONE);
     }
-}
 
-
-void child() {
-    if (ptrace(PTRACE_TRACEME, 0, 0, 0) < 0)
-        cerr << "child: ptrace(traceme) failed" << endl;
-    if (raise(SIGSTOP))
-        cerr << "child: raise(SIGSTOP) failed" << endl;
-
-    errno = 0;
-    pid_t pid = fork();
-    cout << "pid2 " << pid << endl;
-    if (pid < 0)
-        cerr << "couldn't fork" << endl;
-    else if (pid == 0) {
-        cout << "in child" << endl;
-        // execl("/bin/echo", "/bin/echo", "Hello, world2!", NULL);
-    }
-    else {
-        child2(3);
-        wait(NULL);
-    }
-    // perror("execl");
-}
-
-
-bool add_pid(unordered_map<pid_t, int>& trace_info, pid_t pid) {
-    auto [it, was_ins] = trace_info.insert({pid, 0});
-    if (!was_ins) {
-        cerr << "pid=" << pid << " not inserted" << endl;
-        return false;
-    }
-    if (waitpid(it->first, &it->second, 0) < 0) {
-        cerr << "parent: waitpid failed" << endl;
-        return false;
-    }
-    if (!WIFSTOPPED(it->second) || WSTOPSIG(it->second) != SIGSTOP) {
-        kill(it->first, SIGKILL);
-        cerr << "tracer: unexpected wait status" << endl;
-        return false;
-    }
-    ptrace(PTRACE_SETOPTIONS, it->first, 0, PTRACE_O_TRACEFORK);
-    ptrace(PTRACE_SYSCALL, it->first, 0, 0);
-    return true;
-}
-
-bool add_pid2(unordered_map<pid_t, int>& trace_info, pid_t pid) {
-    auto [it, was_ins] = trace_info.insert({pid, 0});
-    if (!was_ins) {
-        cerr << "pid=" << pid << " not inserted" << endl;
-        return false;
-    }
-    ptrace(PTRACE_ATTACH, it->first, 0, 0);
-    if (waitpid(it->first, &it->second, 0) < 0) {
-        cerr << "parent: waitpid failed" << endl;
-        return false;
-    }
-    // if (!WIFSTOPPED(it->second) || WSTOPSIG(it->second) != SIGSTOP) {
-    //     kill(it->first, SIGKILL);
-    //     cerr << "tracer: unexpected wait status" << endl;
-    //     return false;
-    // }
-    ptrace(PTRACE_SETOPTIONS, it->first, 0, PTRACE_O_TRACEFORK);
-    ptrace(PTRACE_SYSCALL, it->first, 0, 0);
-    return true;
-}
-
-
-void parent(pid_t pid) {
-    unordered_map<pid_t, int> trace_info;
-    assert(add_pid(trace_info, pid));
-
-    while (run) {
-        // cout << trace_info.size() << endl;
-        for(auto ti = trace_info.begin(); ti != trace_info.end();){
-            if (WIFEXITED(ti->second)) 
-                ti = trace_info.erase(ti);
-            else 
-                ti++;
-        }
-        if (trace_info.size() > FORK_MAX) {
-            for(auto ti = trace_info.begin(); ti != trace_info.end(); ti++){
-                kill(ti->first, SIGKILL);
+    std::optional<user_regs_struct> HandleStatus(int status) {
+        if (current_state == kAfterSysCall) {
+            if ((status >> 8) == (SIGTRAP | (PTRACE_EVENT_SECCOMP << 8))) {
+                user_regs_struct regs;
+                ptrace(PTRACE_GETREGS, pid, 0, &regs);
+                current_state = kBeforeSysCall;
+                lastsysno = regs.orig_rax;
+                return regs;
             }
-            run = false;
+        } else {
+            if (WIFSTOPPED(status) && WSTOPSIG(status) & (1u << 7)) {
+                user_regs_struct regs;
+                ptrace(PTRACE_GETREGS, pid, 0, &regs);
+                current_state = kAfterSysCall;
+                return regs;
+            }
+        }
+        return std::nullopt;
+    }
+
+    void Resume() {
+        if (current_state == kBeforeSysCall) {
+           // await syscall exit
+           ptrace(PTRACE_SYSCALL, pid, 0, 0);
+        } else {
+           // await next signal/seccomp event 
+           ptrace(PTRACE_CONT, pid, 0, 0);
+        }
+    }
+
+    void SetRegisters(const user_regs_struct& state) {
+        ptrace(PTRACE_SETREGS, pid, 0, &state);
+    }
+};
+
+
+void tracer(int fork_limit = FORK_LIMIT_DEFAULT) {
+    if (fork_limit < 0) die("wrong fork limit count");
+    int fork_limit_left = fork_limit;
+
+    std::unordered_map<pid_t, PidStatus> tracees;
+   
+    while (true) {
+        int status;
+        pid_t pid = waitpid(-1, &status, 0);
+        if (pid < 0) {
+            break;
+        }
+        if (WIFEXITED(status)) {
+            tracees.erase(pid);
             continue;
         }
-        pid_t w_pid;
-        for(auto ti = trace_info.begin(); ti != trace_info.end(); ti++){
-            if ((w_pid = waitpid(ti->first, &ti->second, WNOHANG)) != -1) {
-                assert(w_pid == ti->first || w_pid == 0);
-                // if (w_pid != ti->first)
-                //     continue;
-                if (WIFSTOPPED(ti->second) && (ti->second >> 8) == (SIGTRAP | PTRACE_EVENT_FORK << 8)) {
-                    if (((ti->second >> 16) & 0xffff) == PTRACE_EVENT_FORK) {
-                        pid_t newpid;
-                        if (ptrace(PTRACE_GETEVENTMSG, pid, 0, &newpid) != -1) {        
-                            ptrace(PTRACE_CONT, newpid, 0, 0);
-                            assert(add_pid2(trace_info, newpid));
-                            cout << "newpid " << newpid << endl;    //
-                        }
+
+        if (tracees.count(pid) == 0) {
+            tracees.emplace(pid, PidStatus { pid });
+            tracees.at(pid).Resume();
+            continue;
+        }
+
+        {
+            auto& pid_state = tracees.at(pid);
+            auto regs = pid_state.HandleStatus(status);
+            if (regs && pid_state.current_state == PidStatus::kBeforeSysCall) {
+                auto state = *regs;
+                if (pid_state.lastsysno == SYS_clone || pid_state.lastsysno == SYS_fork) {
+                    if (fork_limit_left == 0) {
+                        state.orig_rax = -1;
+                        pid_state.SetRegisters(state);
+                    } else {
+                        fork_limit_left--;
                     }
                 }
-                ptrace(PTRACE_SYSCALL, ti->first, 0, 0);
+            } else if (regs && pid_state.current_state == PidStatus::kAfterSysCall) {
+                auto state = *regs;
+                if (state.orig_rax == -1) {
+                    state.rax = -EPERM;
+                    pid_state.SetRegisters(state);
+                }
             }
         }
+        tracees.at(pid).Resume();
     }
 }
 
-int main() {
+// for visualisation only, remove later
+void tracee(int forks_remaining) {
+    // std::cout << "tracee: " << forks_remaining << std::endl;
+    if (forks_remaining == 0) {
+        sleep(10);
+        return;
+    }
+    // std::cout << "tracee: " << forks_remaining << " fork!" << std::endl;
     pid_t pid = fork();
-    if (pid != 0)
-        cout << "pid " << pid << endl;
-    if (pid < 0)
-        cerr << "couldn't fork" << endl;
-    else if (pid == 0)
-        child();
-    else
-        parent(pid);
-    cout << "end" << endl;
+    if (pid == -1) {
+        std::cerr << "fork failed: too many forks" << std::endl;
+        return;
+    }
+    if (pid != 0) {
+        sleep(10);
+    } else {
+        tracee(forks_remaining - 1);
+    }
+}
+
+
+int add_tracer() {
+    pid_t pid = fork();
+    if (pid == -1) {
+        std::cerr << "add_tracer failed" << std::endl;
+    }
+    if (pid != 0) {
+        tracer();
+    } else {
+        if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
+            die("main: ptrace(traceme) failed: %m");
+        }
+
+        scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_ALLOW);
+        seccomp_rule_add(ctx, SCMP_ACT_TRACE(0), SYS_clone, 0);
+        seccomp_rule_add(ctx, SCMP_ACT_TRACE(0), SYS_fork, 0);
+        seccomp_load(ctx);
+        
+        /* Остановиться и дождаться, пока отладчик отреагирует. */
+        if (raise(SIGSTOP)) {
+            die("main: raise(SIGSTOP) failed: %m");
+        }
+    }
+    return pid;
+}
+
+
+int main() {                    // add fork_limit option
+    if (add_tracer() != 0) {
+        return 0;               // update it?
+    }
+
+    // other code
+    tracee(7);                  // remove it later
     return 0;
 }
