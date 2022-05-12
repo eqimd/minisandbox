@@ -68,27 +68,19 @@ int enter_pivot_root(void* arg) {
     return 0;
 }
 
-sandbox::sandbox(
-    fs::path executable_path,
-    fs::path rootfs_path,
-    int perm_flags,
-    milliseconds time_execution_limit_ms,
-    bytes ram_limit_bytes,
-    bytes stack_size
-) : executable_path(fs::absolute(executable_path)),
+sandbox::sandbox(fs::path executable_path, fs::path rootfs_path, int perm_flags, rlimits_arguments ra)
+:   executable_path(fs::absolute(executable_path)),
     rootfs_path(fs::absolute(rootfs_path)),
     perm_flags(perm_flags),
-    time_execution_limit_ms(time_execution_limit_ms),
-    ram_limit_bytes(ram_limit_bytes),
-    stack_size(stack_size) {}
+    ra(ra) {}
 
 void sandbox::run() {
     // Add checks: executable exists, it is ELF
     // Add checks: root fs directory exists
 
-    void* stack = mmap(NULL, stack_size, PROT_READ | PROT_WRITE,
+    void* stack = mmap(NULL, ra.stack_size, PROT_READ | PROT_WRITE,
                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
-    void* stack_top = stack + stack_size;
+    void* stack_top = reinterpret_cast<char *>(stack) + ra.stack_size;
 
     bind_new_root(rootfs_path.c_str());
     fs::current_path(rootfs_path);
@@ -122,7 +114,7 @@ void sandbox::run() {
 
     unmount(".", MNT_DETACH);
     fs::remove_all(MINISANDBOX_EXEC);
-    munmap(stack, stack_size);
+    munmap(stack, ra.stack_size);
 }
 
 void sandbox::mount_to_new_root(const char* mount_from, const char* mount_to, int flags) {
