@@ -26,14 +26,43 @@ public:
     void run();
 
 private:
+
+    class sandbox_stack {
+    public:
+        explicit sandbox_stack(size_t stack_size);
+        ~sandbox_stack();
+
+        void* get_stack_top() const;
+    private:
+        void* stack;
+        void* stack_top;
+        size_t stack_size;
+    };
+
+    class sandbox_exec_dir {
+    public:
+        explicit sandbox_exec_dir(const fs::path &newroot);
+        ~sandbox_exec_dir();
+
+        void bind_new_root();
+        void unmount(int flags);
+
+        void copy_executable(const fs::path &p);
+        void *get_path_data();
+    private:
+        const fs::path sandbox_dir = ".minisandbox_exec";
+        fs::path root;
+    };
+
     fs::path executable_path;
     fs::path rootfs_path;
     int perm_flags;
     rlimits_arguments ra;
+
+    sandbox_stack stack;
+    sandbox_exec_dir edir;
     
     void mount_to_new_root(const char* mount_from, const char* mount_to, int flags);
-    void unmount(const char* path, int flags);
-    void bind_new_root(const char* new_root);
 };
 
 }

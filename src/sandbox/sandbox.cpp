@@ -15,7 +15,6 @@
 
 
 constexpr char* PUT_OLD = ".put_old";
-constexpr char* MINISANDBOX_EXEC = ".minisandbox_exec";
 
 namespace minisandbox {
 
@@ -72,38 +71,24 @@ sandbox::sandbox(fs::path executable_path, fs::path rootfs_path, int perm_flags,
 :   executable_path(fs::absolute(executable_path)),
     rootfs_path(fs::absolute(rootfs_path)),
     perm_flags(perm_flags),
-    ra(ra) {}
+    ra(ra),
+    stack(ra.stack_size),
+    edir(rootfs_path) {}
 
 void sandbox::run() {
     // Add checks: executable exists, it is ELF
     // Add checks: root fs directory exists
-
-    void* stack = mmap(NULL, ra.stack_size, PROT_READ | PROT_WRITE,
-                        MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
-    void* stack_top = reinterpret_cast<char *>(stack) + ra.stack_size;
-
-    bind_new_root(rootfs_path.c_str());
-    fs::current_path(rootfs_path);
-
-    fs::create_directory(MINISANDBOX_EXEC);
-
-    fs::path exec_in_sandbox = fs::path(MINISANDBOX_EXEC) / executable_path.filename();
-    fs::copy_file(executable_path, exec_in_sandbox);
-
     errno = 0;
     if (mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL) == -1) {
         throw std::runtime_error(std::string(strerror(errno)));
     }
 
     errno = 0;
-    void* exec_path_casted = reinterpret_cast<void*>(
-        const_cast<char*>((exec_in_sandbox.c_str()))
-    );
     pid_t pid = clone(
         enter_pivot_root,
-        stack_top,
+        stack.get_stack_top(),
         CLONE_NEWNS | CLONE_NEWPID | SIGCHLD,
-        exec_path_casted
+        edir.get_path_data()
     );
     if (pid == -1) {
         throw std::runtime_error(std::string(strerror(errno)));
@@ -111,10 +96,6 @@ void sandbox::run() {
 
     int statloc;
     while (waitpid(pid, &statloc, 0) > 0) {}
-
-    unmount(".", MNT_DETACH);
-    fs::remove_all(MINISANDBOX_EXEC);
-    munmap(stack, ra.stack_size);
 }
 
 void sandbox::mount_to_new_root(const char* mount_from, const char* mount_to, int flags) {
@@ -124,20 +105,59 @@ void sandbox::mount_to_new_root(const char* mount_from, const char* mount_to, in
     }
 }
 
-void sandbox::unmount(const char* path, int flags) {
+sandbox::sandbox_stack::sandbox_stack(size_t stack_size) : stack_size(stack_size) {
+    stack = mmap(NULL, stack_size, PROT_READ | PROT_WRITE,
+                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
+    if (stack == MAP_FAILED) {
+        throw std::runtime_error("Something went wrong with mmap in stack initialization");
+    }
+    stack_top = reinterpret_cast<char *>(stack) + stack_size;
+}
+
+sandbox::sandbox_stack::~sandbox_stack() {
+    munmap(stack, stack_size);
+}
+
+void *sandbox::sandbox_stack::get_stack_top() const {
+    return stack_top;
+}
+
+sandbox::sandbox_exec_dir::sandbox_exec_dir(const fs::path &newroot) : root(newroot) {
+    bind_new_root();
+    fs::current_path(root);
+    fs::create_directory(sandbox_dir);
+}
+
+sandbox::sandbox_exec_dir::~sandbox_exec_dir() {
+    unmount(MNT_DETACH);
+    fs::remove_all(sandbox_dir);
+}
+
+void sandbox::sandbox_exec_dir::copy_executable(const fs::path &p) {
+    fs::copy_file(p, sandbox_dir / p.filename());
+}
+
+void *sandbox::sandbox_exec_dir::get_path_data() {
+    return reinterpret_cast<void*>(
+            const_cast<char*>((sandbox_dir.c_str()))
+    );
+}
+
+void sandbox::sandbox_exec_dir::unmount(int flags) {
+    fs::path current = ".";
     errno = 0;
-    if (umount2(path, flags) == -1) {
+    if (umount2(current.c_str(), flags) == -1) {
         throw std::runtime_error(
-            "Can not unmount " +
-            std::string(path) + ": " +
-            std::string(strerror(errno))
+                "Can not unmount " +
+                std::string(current.c_str()) + ": " +
+                std::string(strerror(errno))
         );
     }
 }
 
-void sandbox::bind_new_root(const char* new_root) {
+void sandbox::sandbox_exec_dir::bind_new_root() {
     errno = 0;
-    if (mount(new_root, new_root, NULL, MS_BIND | MS_REC, NULL) == -1) {
+    if (mount(root.c_str(), root.c_str(), NULL, MS_BIND | MS_REC, NULL) == -1) {
         throw std::runtime_error(std::string(strerror(errno)));
     }
 }
