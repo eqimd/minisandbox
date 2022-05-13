@@ -16,6 +16,16 @@
 #include "empowerment/empowerment.h"
 #include "bomb/bomb.h"
 
+static void prepare_procfs()
+{
+    fs::create_directories("/proc");
+    // chmod 0555
+
+    if (mount("proc", "/proc", "proc", 0, "")) {
+        throw std::runtime_error(std::string(strerror(errno)));
+    }
+}
+
 constexpr char* PUT_OLD = ".put_old";
 constexpr char* MINISANDBOX_EXEC = ".minisandbox_exec";
 
@@ -33,7 +43,10 @@ int enter_pivot_root(void* arg) {
     }    
     fs::current_path("/");
 
+
     errno = 0;
+
+    prepare_procfs();
     if (umount2(PUT_OLD, MNT_DETACH) == -1) {
         throw std::runtime_error(
             "Could not unmount old root: " +
@@ -159,7 +172,7 @@ void sandbox::run() {
     pid_t pid = clone(
         enter_pivot_root,
         stack_top,
-        CLONE_NEWNS | CLONE_NEWPID | SIGCHLD,
+        CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWPID | SIGCHLD,
         reinterpret_cast<void*>(&_data)
     );
     if (pid == -1) {
