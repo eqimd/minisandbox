@@ -23,7 +23,18 @@
 #define IOPRIO_CLASS_SHIFT	(13)
 #define IOPRIO_PRIO_VALUE(class, data)	(((class) << IOPRIO_CLASS_SHIFT) | data)
 
+
 namespace minisandbox {
+
+void prepare_procfs()
+{
+    fs::create_directories("/proc");
+    // chmod 0555
+
+    if (mount("proc", "/proc", "proc", 0, "")) {
+        throw std::runtime_error(std::string(strerror(errno)));
+    }
+}
 
 int enter_pivot_root(void* arg) {
     fs::create_directories(PUT_OLD);
@@ -37,7 +48,10 @@ int enter_pivot_root(void* arg) {
     }    
     fs::current_path("/");
 
+
     errno = 0;
+
+    prepare_procfs();
     if (umount2(PUT_OLD, MNT_DETACH) == -1) {
         throw std::runtime_error(
             "Could not unmount old root: " +
@@ -179,7 +193,7 @@ void sandbox::run() {
     child_pid = clone(
         enter_pivot_root,
         stack_top,
-        CLONE_NEWNS | CLONE_NEWPID | SIGCHLD,
+        CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWPID | SIGCHLD,
         reinterpret_cast<void*>(&_data)
     );
     if (child_pid == -1) {
