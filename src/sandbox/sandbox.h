@@ -1,5 +1,7 @@
 #include <filesystem>
 #include <stdint.h>
+#include <sys/resource.h>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -8,9 +10,14 @@ using bytes = uint64_t;
 
 namespace minisandbox {
 
+struct sandbox_rlimit {
+    __rlimit_resource resource;
+    rlimit rlim;
+};
+
 struct rlimits_arguments {
-    milliseconds time_execution_limit_ms;
-    bytes ram_limit_bytes;
+    sandbox_rlimit time_execution_limit;
+    sandbox_rlimit ram_limit;
     bytes stack_size;
 };
 
@@ -23,9 +30,12 @@ public:
         rlimits_arguments ra
     );
 
+    ~sandbox();
+
     void run();
 
 private:
+    void set_rlimits();
 
     class sandbox_stack {
     public:
@@ -62,6 +72,9 @@ private:
 
     sandbox_stack stack;
     sandbox_exec_dir edir;
+    std::vector<sandbox_rlimit> rls;
+
+    pid_t child_pid;
     
     void mount_to_new_root(const char* mount_from, const char* mount_to, int flags);
 };

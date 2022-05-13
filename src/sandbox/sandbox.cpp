@@ -10,6 +10,7 @@
 #include <fstream>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/ptrace.h>
 
 #include "sandbox.h"
 
@@ -30,6 +31,17 @@ void drop_privileges() {
 }
 
 int enter_pivot_root(void* arg) {
+    //Allow tracing
+    if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
+        //TODO: make it better
+        exit(EXIT_FAILURE);
+    }
+    // Stop n wait for tracer reaction
+    if (raise(SIGSTOP)) {
+        //TODO: make it better
+        exit(EXIT_FAILURE);
+    }
+
     drop_privileges();
 
     fs::create_directories(PUT_OLD);
@@ -54,7 +66,6 @@ int enter_pivot_root(void* arg) {
 
     char* argv[1];
     char* env[1];
-
     errno = 0;
     if (execvpe(exec_path.c_str(), argv, env) == -1) {
         throw std::runtime_error(
@@ -63,7 +74,6 @@ int enter_pivot_root(void* arg) {
             std::string(strerror(errno))
         );
     }
-
     return 0;
 }
 
@@ -73,7 +83,24 @@ sandbox::sandbox(fs::path executable_path, fs::path rootfs_path, int perm_flags,
     perm_flags(perm_flags),
     ra(ra),
     stack(ra.stack_size),
-    edir(rootfs_path) {}
+    edir(rootfs_path) {
+        rls.push_back(ra.time_execution_limit); //TODO: potentially 0
+        rls.push_back(ra.ram_limit);
+}
+
+sandbox::~sandbox() {
+    //TODO: kill
+}
+
+void sandbox::set_rlimits() {
+    for (const sandbox_rlimit &r: rls) {
+        errno = 0;
+        int ret = prlimit(child_pid, r.resource, &r.rlim, NULL);
+        if (ret < 0) {
+            throw std::runtime_error("Error while setting rlimits: " + std::string(strerror(errno)));
+        }
+    }
+}
 
 void sandbox::run() {
     // Add checks: executable exists, it is ELF
@@ -86,18 +113,32 @@ void sandbox::run() {
     }
 
     errno = 0;
-    pid_t pid = clone(
+    child_pid = clone(
         enter_pivot_root,
         stack.get_stack_top(),
         CLONE_NEWNS | CLONE_NEWPID | SIGCHLD,
         edir.get_exec_path_data()
     );
-    if (pid == -1) {
+    if (child_pid == -1) {
         throw std::runtime_error(std::string(strerror(errno)));
     }
 
+    set_rlimits();
     int statloc;
-    while (waitpid(pid, &statloc, 0) > 0) {}
+
+    // TODO: errno?
+    if (waitpid(child_pid, &statloc, 0) < 0) {
+        throw std::runtime_error("Error while waiting for ptraceme from child");
+    }
+    if (!WIFSTOPPED(statloc) || WSTOPSIG(statloc) != SIGSTOP) {
+        throw std::runtime_error("Unexpected returned status from child");
+    }
+
+    // TODO: refactor me
+    while (!WIFEXITED(statloc)) {
+        ptrace(PTRACE_SYSCALL, child_pid, 0, 0);
+        waitpid(child_pid, &statloc, 0);
+    }
 }
 
 void sandbox::mount_to_new_root(const char* mount_from, const char* mount_to, int flags) {
