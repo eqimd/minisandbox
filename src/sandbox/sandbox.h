@@ -48,10 +48,11 @@ private:
         void unmount(int flags);
 
         void copy_executable(const fs::path &p);
-        void *get_path_data();
+        void *get_exec_path_data();
     private:
         const fs::path sandbox_dir = ".minisandbox_exec";
         fs::path root;
+        fs::path exec;
     };
 
     fs::path executable_path;

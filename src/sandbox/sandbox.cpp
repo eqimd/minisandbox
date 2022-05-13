@@ -78,6 +78,8 @@ sandbox::sandbox(fs::path executable_path, fs::path rootfs_path, int perm_flags,
 void sandbox::run() {
     // Add checks: executable exists, it is ELF
     // Add checks: root fs directory exists
+    edir.copy_executable(executable_path);
+
     errno = 0;
     if (mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL) == -1) {
         throw std::runtime_error(std::string(strerror(errno)));
@@ -88,7 +90,7 @@ void sandbox::run() {
         enter_pivot_root,
         stack.get_stack_top(),
         CLONE_NEWNS | CLONE_NEWPID | SIGCHLD,
-        edir.get_path_data()
+        edir.get_exec_path_data()
     );
     if (pid == -1) {
         throw std::runtime_error(std::string(strerror(errno)));
@@ -135,11 +137,12 @@ sandbox::sandbox_exec_dir::~sandbox_exec_dir() {
 
 void sandbox::sandbox_exec_dir::copy_executable(const fs::path &p) {
     fs::copy_file(p, sandbox_dir / p.filename());
+    exec = sandbox_dir / p.filename();
 }
 
-void *sandbox::sandbox_exec_dir::get_path_data() {
+void *sandbox::sandbox_exec_dir::get_exec_path_data() {
     return reinterpret_cast<void*>(
-            const_cast<char*>((sandbox_dir.c_str()))
+            const_cast<char*>((exec.c_str()))
     );
 }
 
@@ -162,4 +165,4 @@ void sandbox::sandbox_exec_dir::bind_new_root() {
     }
 }
 
-};
+}
