@@ -18,6 +18,7 @@ public:
         bytes ram_limit_bytes,
         bytes stack_size
     );
+    ~sandbox();
 
     void run();
 
@@ -28,10 +29,13 @@ private:
     milliseconds time_execution_limit_ms;
     bytes ram_limit_bytes;
     bytes stack_size;
+
+    void* clone_stack = nullptr;
     
     void mount_to_new_root(const char* mount_from, const char* mount_to, int flags);
     void unmount(const char* path, int flags);
     void bind_new_root(const char* new_root);
+    void clean_after_run();
 };
 
 };

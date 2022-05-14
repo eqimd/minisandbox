@@ -22,11 +22,17 @@ namespace minisandbox {
 void drop_privileges() {
     errno = 0;
     if (setgid(getgid()) == -1) {
-        throw std::runtime_error(std::string(strerror(errno)));
+        throw std::runtime_error(
+            "Could not drop privileges (setgid or getgid): " +
+            std::string(strerror(errno))
+        );
     }
     errno = 0;
     if (setuid(getuid()) == -1) {
-        throw std::runtime_error(std::string(strerror(errno)));
+        throw std::runtime_error(
+            "Could not drop privileges (setuid or getuid): " +
+            std::string(strerror(errno))
+        );
     }
 }
 
@@ -47,7 +53,10 @@ int enter_pivot_root(void* arg) {
 
     errno = 0;
     if (umount2(PUT_OLD, MNT_DETACH) == -1) {
-        throw std::runtime_error(std::string(strerror(errno)));
+        throw std::runtime_error(
+            "Could not unmount old root: " +
+            std::string(strerror(errno))
+        );
     }
     fs::remove(PUT_OLD);
 
@@ -59,7 +68,7 @@ int enter_pivot_root(void* arg) {
     errno = 0;
     if (execvpe(exec_path.c_str(), argv, env) == -1) {
         throw std::runtime_error(
-            "Can not execute " +
+            "Could not execute " +
             exec_path.string() + ": " +
             std::string(strerror(errno))
         );
@@ -82,13 +91,19 @@ sandbox::sandbox(
     ram_limit_bytes(ram_limit_bytes),
     stack_size(stack_size) {}
 
+sandbox::~sandbox() {
+    try {
+        clean_after_run();
+    } catch (...) {}
+}
+
 void sandbox::run() {
     // Add checks: executable exists, it is ELF
     // Add checks: root fs directory exists
 
-    void* stack = mmap(NULL, stack_size, PROT_READ | PROT_WRITE,
+    clone_stack = mmap(NULL, stack_size, PROT_READ | PROT_WRITE,
                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
-    void* stack_top = stack + stack_size;
+    void* stack_top = clone_stack + stack_size;
 
     bind_new_root(rootfs_path.c_str());
     fs::current_path(rootfs_path);
@@ -98,10 +113,7 @@ void sandbox::run() {
     fs::path exec_in_sandbox = fs::path(MINISANDBOX_EXEC) / executable_path.filename();
     fs::copy_file(executable_path, exec_in_sandbox);
 
-    errno = 0;
-    if (mount(NULL, "/", NULL, MS_PRIVATE | MS_REC, NULL) == -1) {
-        throw std::runtime_error(std::string(strerror(errno)));
-    }
+    mount_to_new_root(NULL, "/", MS_PRIVATE | MS_REC);
 
     errno = 0;
     void* exec_path_casted = reinterpret_cast<void*>(
@@ -114,21 +126,26 @@ void sandbox::run() {
         exec_path_casted
     );
     if (pid == -1) {
-        throw std::runtime_error(std::string(strerror(errno)));
+        throw std::runtime_error(
+            "Could not clone process: " +
+            std::string(strerror(errno))
+        );
     }
 
     int statloc;
     while (waitpid(pid, &statloc, 0) > 0) {}
 
-    unmount(".", MNT_DETACH);
-    fs::remove_all(MINISANDBOX_EXEC);
-    munmap(stack, stack_size);
+    clean_after_run();
 }
 
 void sandbox::mount_to_new_root(const char* mount_from, const char* mount_to, int flags) {
     errno = 0;
     if (mount(mount_from, mount_to, NULL, flags, NULL) == -1) {
-        throw std::runtime_error(std::string(strerror(errno)));
+        throw std::runtime_error(
+            "Could not mount " +
+            std::string(mount_from) + ": " +
+            std::string(strerror(errno))
+        );
     }
 }
 
@@ -136,7 +153,7 @@ void sandbox::unmount(const char* path, int flags) {
     errno = 0;
     if (umount2(path, flags) == -1) {
         throw std::runtime_error(
-            "Can not unmount " +
+            "ERROR: Could not unmount " +
             std::string(path) + ": " +
             std::string(strerror(errno))
         );
@@ -146,7 +163,20 @@ void sandbox::unmount(const char* path, int flags) {
 void sandbox::bind_new_root(const char* new_root) {
     errno = 0;
     if (mount(new_root, new_root, NULL, MS_BIND | MS_REC, NULL) == -1) {
-        throw std::runtime_error(std::string(strerror(errno)));
+        throw std::runtime_error(
+            "Could not bind new root " +
+            std::string(new_root) + ": " +
+            std::string(strerror(errno))
+        );
+    }
+}
+
+void sandbox::clean_after_run() {
+    unmount(".", MNT_DETACH);
+    fs::remove_all(MINISANDBOX_EXEC);
+    if (clone_stack != nullptr) {
+        munmap(clone_stack, stack_size);
+        clone_stack = nullptr;
     }
 }
 
