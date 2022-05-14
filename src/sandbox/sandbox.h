@@ -8,6 +8,15 @@ using bytes = uint64_t;
 
 namespace minisandbox {
 
+struct sandbox_data {
+    fs::path executable_path;
+    fs::path rootfs_path;
+    int perm_flags;
+    milliseconds time_execution_limit_ms;
+    bytes ram_limit_bytes;
+    bytes stack_size;
+};
+
 class sandbox {
 public:
     sandbox(
@@ -18,6 +27,7 @@ public:
         bytes ram_limit_bytes,
         bytes stack_size
     );
+    sandbox(const sandbox_data& sb_data);
     ~sandbox();
 
     void run();

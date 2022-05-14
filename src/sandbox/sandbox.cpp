@@ -91,6 +91,15 @@ sandbox::sandbox(
     ram_limit_bytes(ram_limit_bytes),
     stack_size(stack_size) {}
 
+sandbox::sandbox(const sandbox_data& sb_data) {
+    executable_path = sb_data.executable_path;
+    rootfs_path = sb_data.rootfs_path;
+    perm_flags = sb_data.perm_flags;
+    time_execution_limit_ms = sb_data.time_execution_limit_ms;
+    ram_limit_bytes = sb_data.ram_limit_bytes;
+    stack_size = sb_data.stack_size;
+}
+
 sandbox::~sandbox() {
     try {
         clean_after_run();
