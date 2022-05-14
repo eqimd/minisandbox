@@ -1,10 +1,11 @@
 #include "sandbox/sandbox.h"
+#include <iostream>
 
 int main(int argc, char* argv[]) {
     fs::path executable_path = argv[1];
     fs::path rootfs_path = argv[2];
     int perm_flags = 0;
-    bytes stack_size = 10240;
+    bytes stack_size = 1024;
 
     minisandbox::sandbox_rlimit time_execution_limit;
     minisandbox::sandbox_rlimit ram_limit;
@@ -14,7 +15,7 @@ int main(int argc, char* argv[]) {
     ram_limit = {
             .resource = RLIMIT_AS,
             .rlim = {
-                    .rlim_cur = 102400000,
+                    .rlim_cur = 10240,
                     .rlim_max = r.rlim_max,
             }
     };
@@ -29,14 +30,18 @@ int main(int argc, char* argv[]) {
             }
     };
 
-    minisandbox::sandbox sb(
-        executable_path,
-        rootfs_path,
-        perm_flags,
-        { time_execution_limit,
-        ram_limit,
-        stack_size }
-    );
+    try {
+        minisandbox::sandbox sb(
+                executable_path,
+                rootfs_path,
+                perm_flags,
+                { time_execution_limit,
+                ram_limit,
+                stack_size }
+        );
 
-    sb.run();
+        sb.run();
+    } catch (std::runtime_error &e) {
+        std::cout << e.what() << std::endl;
+    }
 }
