@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <vector>
+#include <sys/ptrace.h>
 
 #include "sandbox.h"
 
@@ -44,6 +45,15 @@ void drop_privileges() {
 }
 
 int enter_pivot_root(void* arg) {
+    //Allow tracing
+    if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
+        exit(EXIT_FAILURE);
+    }
+    // Stop n wait for tracer reaction
+    if (raise(SIGSTOP)) {
+        exit(EXIT_FAILURE);
+    }
+
     drop_privileges();
 
     fs::create_directories(PUT_OLD);
@@ -87,8 +97,10 @@ sandbox::sandbox(const sandbox_data& sb_data) {
     argv = sb_data.argv;
     envp = sb_data.envp;
     perm_flags = sb_data.perm_flags;
-    time_execution_limit_ms = sb_data.time_execution_limit_ms;
-    ram_limit_bytes = sb_data.ram_limit_bytes;
+
+    rlimits.push_back({RLIMIT_AS, {sb_data.ram_limit_bytes, sb_data.ram_limit_bytes}});
+    rlimits.push_back({RLIMIT_CPU, {sb_data.time_execution_limit_ms / 1000, sb_data.time_execution_limit_ms / 1000}}); //potentially zero
+
     stack_size = sb_data.stack_size;
 }
 
@@ -132,7 +144,7 @@ void sandbox::run() {
 
     clone_stack = mmap(NULL, stack_size, PROT_READ | PROT_WRITE,
                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
-    void* stack_top = clone_stack + stack_size;
+    void* stack_top = reinterpret_cast<char*>(clone_stack) + stack_size;
 
     bind_new_root(rootfs_path.c_str());
     fs::current_path(rootfs_path);
@@ -169,21 +181,53 @@ void sandbox::run() {
     data.envp = const_cast<char**>(envp_cstr.data());
 
     errno = 0;
-    pid_t pid = clone(
+    child_pid = clone(
         enter_pivot_root,
         stack_top,
         CLONE_NEWNS | CLONE_NEWPID | SIGCHLD,
         &data
     );
-    if (pid == -1) {
+    if (child_pid == -1) {
         throw std::runtime_error(
             "Could not clone process: " +
             std::string(strerror(errno))
         );
     }
 
+    set_rlimits();
     int statloc;
-    while (waitpid(pid, &statloc, 0) > 0) {}
+    if (waitpid(child_pid, &statloc, 0) < 0) {
+        throw std::runtime_error("Error while waiting for ptraceme from child");
+    }
+    if (!WIFSTOPPED(statloc) || WSTOPSIG(statloc) != SIGSTOP) {
+        throw std::runtime_error("Unexpected returned status from child");
+    }
+
+    ptrace(PTRACE_SETOPTIONS, child_pid, 0, PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACEEXIT);
+    auto now_time = std::chrono::steady_clock::now();
+    int ret = 0;
+    // TODO: refactor me
+    while (!WIFEXITED(statloc)) {
+        ptrace(PTRACE_SYSCALL, child_pid, 0, 0);
+        ret = waitpid(child_pid, &statloc, 0);
+        if (WIFSTOPPED(statloc) && WSTOPSIG(statloc) & (1u << 7)) {
+            //do smth
+        } else {
+            if (WSTOPSIG(statloc) == 11) {
+                throw std::runtime_error("Segfault was thrown");
+            }
+            continue;
+        }
+
+        while (!WIFEXITED(statloc)) {
+            ptrace(PTRACE_SYSCALL, child_pid, 0, 0);
+            waitpid(child_pid, &statloc, 0);
+
+            if (WIFSTOPPED(statloc) && WSTOPSIG(statloc) & (1u << 7)) {
+                break;
+            } 
+        }
+    }
 
     clean_after_run();
 }
@@ -227,6 +271,16 @@ void sandbox::clean_after_run() {
     if (clone_stack != nullptr) {
         munmap(clone_stack, stack_size);
         clone_stack = nullptr;
+    }
+}
+
+void sandbox::set_rlimits() {
+    for (const sandbox_rlimit &r: rlimits) {
+        errno = 0;
+        int ret = prlimit(child_pid, r.resource, &r.rlim, NULL);
+        if (ret < 0) {
+            throw std::runtime_error("Error while setting rlimits: " + std::string(strerror(errno)));
+        }
     }
 }
 
