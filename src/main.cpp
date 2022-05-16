@@ -1,12 +1,24 @@
 #include "sandbox/sandbox.h"
+#include <nlohmann/json.hpp>
+#include <fstream>
+#include <iostream>
 
 int main(int argc, char* argv[]) {
-    fs::path executable_path = argv[1];
-    fs::path rootfs_path = argv[2];
-    int perm_flags = 0;
-    int ram_limit_bytes = 0;
-    int stack_size = 10240;
-    int time_execution_limit_ms = 0;
+    if (argc != 2) {
+        std::cout << "Usage: ./" << argv[0] << " <config path>" << std::endl;
+        return 0;
+    }
+
+    nlohmann::json config;
+    std::ifstream config_file(argv[1]);
+    config_file >> config;
+
+    fs::path executable_path = config["executable"];
+    fs::path rootfs_path = config["rootfs"];
+    int perm_flags = config["perm_flags"];
+    int ram_limit_bytes = config["ram_limit"];
+    int stack_size = config["stack_size"];
+    int time_execution_limit_ms = config["time_limit"];
 
     minisandbox::sandbox sb(
         executable_path,
