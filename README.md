@@ -1,7 +1,7 @@
-## Simple linux sandbox tool
+## Simple linux sandboxing tool
 ---
 ### Usage
 Run with superuser privileges:
 ```bash
-./minisandbox <executable> <path to root fs>
+./minisandbox <config path>
 ```
