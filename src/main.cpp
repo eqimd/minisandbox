@@ -16,7 +16,7 @@ int main(int argc, char* argv[]) {
             .resource = RLIMIT_AS,
             .rlim = {
                     .rlim_cur = 10240,
-                    .rlim_max = r.rlim_max,
+                    .rlim_max = 10240,
             }
     };
 
@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
             .resource = RLIMIT_CPU,
             .rlim = {
                     .rlim_cur = 2,
-                    .rlim_max = r.rlim_max,
+                    .rlim_max = 2,
             }
     };
 
