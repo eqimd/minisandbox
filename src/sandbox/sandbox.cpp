@@ -11,7 +11,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/ptrace.h>
-
+#include <chrono>
 #include "sandbox.h"
 
 
@@ -74,6 +74,7 @@ int enter_pivot_root(void* arg) {
             std::string(strerror(errno))
         );
     }
+    
     return 0;
 }
 
@@ -134,10 +135,30 @@ void sandbox::run() {
         throw std::runtime_error("Unexpected returned status from child");
     }
 
+    ptrace(PTRACE_SETOPTIONS, child_pid, 0, PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACEEXIT);
+    auto now_time = std::chrono::steady_clock::now();
+    int ret = 0;
     // TODO: refactor me
     while (!WIFEXITED(statloc)) {
         ptrace(PTRACE_SYSCALL, child_pid, 0, 0);
-        waitpid(child_pid, &statloc, 0);
+        ret = waitpid(child_pid, &statloc, 0);
+        if (WIFSTOPPED(statloc) && WSTOPSIG(statloc) & (1u << 7)) {
+            //do smth
+        } else {
+            if (WSTOPSIG(statloc) == 11) {
+                throw std::runtime_error("Segfault was thrown");
+            }
+            continue;
+        }
+
+        while (!WIFEXITED(statloc)) {
+            ptrace(PTRACE_SYSCALL, child_pid, 0, 0);
+            waitpid(child_pid, &statloc, 0);
+
+            if (WIFSTOPPED(statloc) && WSTOPSIG(statloc) & (1u << 7)) {
+                break;
+            } 
+        }
     }
 }
 
