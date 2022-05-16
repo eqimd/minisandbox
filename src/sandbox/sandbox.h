@@ -1,5 +1,7 @@
 #include <filesystem>
 #include <stdint.h>
+#include <vector>
+#include <string>
 
 namespace fs = std::filesystem;
 
@@ -11,6 +13,8 @@ namespace minisandbox {
 struct sandbox_data {
     fs::path executable_path;
     fs::path rootfs_path;
+    std::vector<std::string> argv;
+    std::vector<std::string> envp;
     int perm_flags;
     milliseconds time_execution_limit_ms;
     bytes ram_limit_bytes;
@@ -19,14 +23,6 @@ struct sandbox_data {
 
 class sandbox {
 public:
-    sandbox(
-        fs::path executable_path,
-        fs::path rootfs_path,
-        int perm_flags,
-        milliseconds time_execution_limit_ms,
-        bytes ram_limit_bytes,
-        bytes stack_size
-    );
     sandbox(const sandbox_data& sb_data);
     ~sandbox();
 
@@ -35,6 +31,8 @@ public:
 private:
     fs::path executable_path;
     fs::path rootfs_path;
+    std::vector<std::string> argv;
+    std::vector<std::string> envp;
     int perm_flags;
     milliseconds time_execution_limit_ms;
     bytes ram_limit_bytes;

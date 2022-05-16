@@ -10,6 +10,7 @@
 #include <fstream>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <vector>
 
 #include "sandbox.h"
 
@@ -18,6 +19,12 @@ constexpr char* PUT_OLD = ".put_old";
 constexpr char* MINISANDBOX_EXEC = ".minisandbox_exec";
 
 namespace minisandbox {
+
+struct clone_data {
+    const char* executable;
+    char** argv;
+    char** envp;
+};
 
 void drop_privileges() {
     errno = 0;
@@ -60,16 +67,13 @@ int enter_pivot_root(void* arg) {
     }
     fs::remove(PUT_OLD);
 
-    fs::path exec_path = fs::absolute(reinterpret_cast<char*>(arg));
-
-    char* argv[1];
-    char* env[1];
+    struct clone_data* data = (struct clone_data*)(arg);
 
     errno = 0;
-    if (execvpe(exec_path.c_str(), argv, env) == -1) {
+    if (execvpe(data->executable, data->argv, data->envp) == -1) {
         throw std::runtime_error(
             "Could not execute " +
-            exec_path.string() + ": " +
+            std::string(data->executable) + ": " +
             std::string(strerror(errno))
         );
     }
@@ -77,23 +81,11 @@ int enter_pivot_root(void* arg) {
     return 0;
 }
 
-sandbox::sandbox(
-    fs::path executable_path,
-    fs::path rootfs_path,
-    int perm_flags,
-    milliseconds time_execution_limit_ms,
-    bytes ram_limit_bytes,
-    bytes stack_size
-) : executable_path(fs::absolute(executable_path)),
-    rootfs_path(fs::absolute(rootfs_path)),
-    perm_flags(perm_flags),
-    time_execution_limit_ms(time_execution_limit_ms),
-    ram_limit_bytes(ram_limit_bytes),
-    stack_size(stack_size) {}
-
 sandbox::sandbox(const sandbox_data& sb_data) {
-    executable_path = sb_data.executable_path;
+    executable_path = fs::absolute(sb_data.executable_path);
     rootfs_path = sb_data.rootfs_path;
+    argv = sb_data.argv;
+    envp = sb_data.envp;
     perm_flags = sb_data.perm_flags;
     time_execution_limit_ms = sb_data.time_execution_limit_ms;
     ram_limit_bytes = sb_data.ram_limit_bytes;
@@ -107,8 +99,36 @@ sandbox::~sandbox() {
 }
 
 void sandbox::run() {
-    // Add checks: executable exists, it is ELF
-    // Add checks: root fs directory exists
+    // TODO: run only elf???
+    
+    if (!fs::exists(executable_path)) {
+        throw std::runtime_error(
+            "Executable " +
+            executable_path.string() +
+            " does not exist."
+        );
+    }
+
+    if (!fs::exists(rootfs_path)) {
+        throw std::runtime_error(
+            "Rootfs directory " +
+            rootfs_path.string() +
+            " does not exist."
+        );
+    }
+    if (!fs::is_directory(rootfs_path)) {
+        throw std::runtime_error(
+            "Rootfs path " +
+            rootfs_path.string() +
+            " is not a directory."
+        );
+    }
+
+    if (stack_size == 0) {
+        throw std::runtime_error(
+            "Stack size should not be zero."
+        );
+    }
 
     clone_stack = mmap(NULL, stack_size, PROT_READ | PROT_WRITE,
                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
@@ -124,15 +144,36 @@ void sandbox::run() {
 
     mount_to_new_root(NULL, "/", MS_PRIVATE | MS_REC);
 
-    errno = 0;
-    void* exec_path_casted = reinterpret_cast<void*>(
-        const_cast<char*>((exec_in_sandbox.c_str()))
+    std::vector<const char*> argv_cstr;
+    std::transform(
+        argv.begin(),
+        argv.end(),
+        std::back_inserter(argv_cstr),
+        [](const std::string& s) {
+            return s.c_str();
+        }
     );
+    std::vector<const char*> envp_cstr;
+    std::transform(
+        envp.begin(),
+        envp.end(),
+        std::back_inserter(envp_cstr),
+        [](const std::string& s) {
+            return s.c_str();
+        }
+    );
+
+    struct clone_data data = {};
+    data.executable = exec_in_sandbox.c_str();
+    data.argv = const_cast<char**>(argv_cstr.data());
+    data.envp = const_cast<char**>(envp_cstr.data());
+
+    errno = 0;
     pid_t pid = clone(
         enter_pivot_root,
         stack_top,
         CLONE_NEWNS | CLONE_NEWPID | SIGCHLD,
-        exec_path_casted
+        &data
     );
     if (pid == -1) {
         throw std::runtime_error(
