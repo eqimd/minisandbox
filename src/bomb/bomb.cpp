@@ -95,7 +95,7 @@ void tracer(int fork_limit = FORK_LIMIT_DEFAULT) {
     int fork_limit_left = fork_limit;
 
     std::unordered_map<pid_t, PidStatus> tracees;
-   
+
     while (true) {
         int status;
         pid_t pid = waitpid(-1, &status, 0);
@@ -104,6 +104,7 @@ void tracer(int fork_limit = FORK_LIMIT_DEFAULT) {
         }
         if (WIFEXITED(status)) {
             tracees.erase(pid);
+            fork_limit_left++;
             continue;
         }
 
@@ -119,12 +120,11 @@ void tracer(int fork_limit = FORK_LIMIT_DEFAULT) {
             if (regs && pid_state.current_state == PidStatus::kBeforeSysCall) {
                 auto state = *regs;
                 if (pid_state.lastsysno == SYS_clone || pid_state.lastsysno == SYS_fork) {
-                    if (fork_limit_left == 0) {
+                    if (fork_limit_left <= 0) {
                         state.orig_rax = -1;
                         pid_state.SetRegisters(state);
-                    } else {
-                        fork_limit_left--;
                     }
+                    fork_limit_left--;
                 }
             } else if (regs && pid_state.current_state == PidStatus::kAfterSysCall) {
                 auto state = *regs;
