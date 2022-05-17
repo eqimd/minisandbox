@@ -11,7 +11,11 @@ add_library(
         SHARED
         src/sandbox/sandbox.cpp
         src/sandbox/sandbox.h
+        src/bomb/bomb.cpp
+        src/bomb/bomb.h
 )
+
+add_link_options(-lseccomp)
 
 add_executable(
         ${PROJECT_NAME}

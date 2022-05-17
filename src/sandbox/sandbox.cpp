@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "sandbox.h"
-
+#include "bomb/bomb.h"
 
 constexpr char* PUT_OLD = ".put_old";
 constexpr char* MINISANDBOX_EXEC = ".minisandbox_exec";
@@ -68,6 +68,10 @@ int enter_pivot_root(void* arg) {
     fs::remove(PUT_OLD);
 
     struct clone_data* data = (struct clone_data*)(arg);
+
+    if (minisandbox::forkbomb::add_tracer() != 0) {     // TODO: start trace before?
+        return 0;                                       // TODO: update it?
+    }
 
     errno = 0;
     if (execvpe(data->executable, data->argv, data->envp) == -1) {

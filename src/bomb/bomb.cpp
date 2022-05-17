@@ -19,6 +19,8 @@
 #include <atomic>
 #include <unordered_map>
 
+#include "bomb.h"
+
 
 #define die(...)                                           \
     do                                                     \
@@ -90,7 +92,7 @@ struct PidStatus {
 };
 
 
-void tracer(int fork_limit = FORK_LIMIT_DEFAULT) {
+static void tracer(int fork_limit = FORK_LIMIT_DEFAULT) {
     if (fork_limit < 0) die("wrong fork limit count");
     int fork_limit_left = fork_limit;
 
@@ -138,28 +140,8 @@ void tracer(int fork_limit = FORK_LIMIT_DEFAULT) {
     }
 }
 
-// for visualisation only, remove later
-void tracee(int forks_remaining) {
-    // std::cout << "tracee: " << forks_remaining << std::endl;
-    if (forks_remaining == 0) {
-        sleep(10);
-        return;
-    }
-    // std::cout << "tracee: " << forks_remaining << " fork!" << std::endl;
-    pid_t pid = fork();
-    if (pid == -1) {
-        std::cerr << "fork failed: too many forks" << std::endl;
-        return;
-    }
-    if (pid != 0) {
-        sleep(10);
-    } else {
-        tracee(forks_remaining - 1);
-    }
-}
 
-
-int add_tracer() {
+int minisandbox::forkbomb::add_tracer() {
     pid_t pid = fork();
     if (pid == -1) {
         std::cerr << "add_tracer failed" << std::endl;
@@ -182,15 +164,4 @@ int add_tracer() {
         }
     }
     return pid;
-}
-
-
-int main() {                    // add fork_limit option
-    if (add_tracer() != 0) {
-        return 0;               // update it?
-    }
-
-    // other code
-    tracee(7);                  // remove it later
-    return 0;
 }
