@@ -11,6 +11,8 @@ add_library(
         SHARED
         src/sandbox/sandbox.cpp
         src/sandbox/sandbox.h
+        src/empowerment/empowerment.cpp
+        src/empowerment/empowerment.h
 )
 
 add_executable(

@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "sandbox.h"
-
+#include "empowerment/empowerment.h"
 
 constexpr char* PUT_OLD = ".put_old";
 constexpr char* MINISANDBOX_EXEC = ".minisandbox_exec";
@@ -26,25 +26,8 @@ struct clone_data {
     char** envp;
 };
 
-void drop_privileges() {
-    errno = 0;
-    if (setgid(getgid()) == -1) {
-        throw std::runtime_error(
-            "Could not drop privileges (setgid or getgid): " +
-            std::string(strerror(errno))
-        );
-    }
-    errno = 0;
-    if (setuid(getuid()) == -1) {
-        throw std::runtime_error(
-            "Could not drop privileges (setuid or getuid): " +
-            std::string(strerror(errno))
-        );
-    }
-}
-
 int enter_pivot_root(void* arg) {
-    drop_privileges();
+    minisandbox::empowerment::set_uid();
 
     fs::create_directories(PUT_OLD);
     
@@ -68,6 +51,8 @@ int enter_pivot_root(void* arg) {
     fs::remove(PUT_OLD);
 
     struct clone_data* data = (struct clone_data*)(arg);
+
+    minisandbox::empowerment::set_capabilities(data->executable);
 
     errno = 0;
     if (execvpe(data->executable, data->argv, data->envp) == -1) {

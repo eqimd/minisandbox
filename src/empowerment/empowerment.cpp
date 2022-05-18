@@ -1,11 +1,11 @@
 #include <iostream>
 #include <unistd.h>
 #include <sys/capability.h>
-#include <string>
 #include <cstring>
 #include <cassert>
 
-using std::string;
+#include "empowerment.h"
+
 using std::cout;
 using std::cerr;
 using std::endl;
@@ -31,9 +31,9 @@ bool set_uid() {
     return true;
 }
 
-void show_capabilities(string filename) {
+static void show_capabilities(const char* filename) {
     errno = 0;
-    cap_t caps = cap_get_file(filename.c_str());
+    cap_t caps = cap_get_file(filename);
     if (caps == NULL) {
         if (errno != ENODATA) {
             perror("show_capabilities.cap_get_file");
@@ -58,7 +58,7 @@ void show_capabilities(string filename) {
         perror("cap_free");
 }
 
-bool set_capabilities(string filename) {
+bool set_capabilities(const char* filename) {
     // show_capabilities(filename);
 
     bool ret = true;
@@ -76,7 +76,7 @@ bool set_capabilities(string filename) {
             perror("set_uid: getresuid failed");
             return false;
         }
-        if (cap_set_file(filename.c_str(), caps) == -1) {
+        if (cap_set_file(filename, caps) == -1) {
             cerr << "Failed to set capabilities of file " << filename << ": " << strerror(errno) << endl;
             ret = false;
         }
@@ -87,21 +87,4 @@ bool set_capabilities(string filename) {
         }
     }
     return ret;
-}
-
-// example
-void f(char* filename) {
-    char exec[] = "./exec1";
-    char* argv[] = {exec, filename, NULL};
-    char* envp[] = {NULL};
-    if (execve(exec, argv, envp) == -1)
-        perror("Could not execve exec1");
-}
-
-int main(int argc, char *argv[]) {
-    assert(argc == 2);
-    set_capabilities("exec1");
-    set_uid();
-    f(argv[1]);
-    return 0;
 }
