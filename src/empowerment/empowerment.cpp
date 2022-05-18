@@ -83,7 +83,7 @@ bool set_capabilities(const char* filename) {
         else {
             if (cap_free(caps) != 0)
                 perror("cap_free");
-            show_capabilities(filename);
+//             show_capabilities(filename);
         }
     }
     return ret;
