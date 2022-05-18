@@ -11,7 +11,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <vector>
-
+#include <sys/param.h>
 #include "sandbox.h"
 
 
@@ -27,25 +27,69 @@ struct clone_data {
 };
 
 void drop_privileges() {
-    errno = 0;
-    if (setgid(getgid()) == -1) {
-        throw std::runtime_error(
-            "Could not drop privileges (setgid or getgid): " +
-            std::string(strerror(errno))
-        );
-    }
-    errno = 0;
-    if (setuid(getuid()) == -1) {
-        throw std::runtime_error(
-            "Could not drop privileges (setuid or getuid): " +
-            std::string(strerror(errno))
-        );
-    }
+    gid_t gid;
+	uid_t uid;
+
+	// no need to "drop" the privileges that you don't have in the first place!
+	if (getuid() != 0) {
+		return;
+	}
+
+	// when your program is invoked with sudo, getuid() will return 0 and you
+	// won't be able to drop your privileges
+	if ((uid = getuid()) == 0) {
+		const char *sudo_uid = secure_getenv("SUDO_UID");
+		if (sudo_uid == NULL) {
+			printf("environment variable `SUDO_UID` not found\n");
+			return;
+		}
+		errno = 0;
+		uid = (uid_t) strtoll(sudo_uid, NULL, 10);
+		if (errno != 0) {
+			perror("under-/over-flow in converting `SUDO_UID` to integer");
+			return;
+		}
+	}
+
+	// again, in case your program is invoked using sudo
+	if ((gid = getgid()) == 0) {
+		const char *sudo_gid = secure_getenv("SUDO_GID");
+		if (sudo_gid == NULL) {
+			printf("environment variable `SUDO_GID` not found\n");
+			return;
+		}
+		errno = 0;
+		gid = (gid_t) strtoll(sudo_gid, NULL, 10);
+		if (errno != 0) {
+			perror("under-/over-flow in converting `SUDO_GID` to integer");
+			return;
+		}
+	}
+
+	if (setgid(gid) != 0) {
+		perror("setgid");
+		return;
+	}
+	if (setuid(uid) != 0) {
+		perror("setgid");
+		return;
+	}
+
+	// change your directory to somewhere else, just in case if you are in a
+	// root-owned one (e.g. /root)
+	if (chdir("/") != 0) {
+		perror("chdir");
+		return;
+	}
+
+	// check if we successfully dropped the root privileges
+	if (setuid(0) == 0 || seteuid(0) == 0) {
+		printf("could not drop root privileges!\n");
+		return;
+	}
 }
 
 int enter_pivot_root(void* arg) {
-    drop_privileges();
-
     fs::create_directories(PUT_OLD);
     
     errno = 0;
@@ -66,6 +110,8 @@ int enter_pivot_root(void* arg) {
         );
     }
     fs::remove(PUT_OLD);
+
+    drop_privileges();
 
     struct clone_data* data = (struct clone_data*)(arg);
 
@@ -163,6 +209,9 @@ void sandbox::run() {
         }
     );
 
+    fs::create_directory("programming");
+    mount_to_new_root("/home/eqimd/programming", "programming", MS_BIND);
+
     struct clone_data data = {};
     data.executable = exec_in_sandbox.c_str();
     data.argv = const_cast<char**>(argv_cstr.data());
@@ -193,7 +242,8 @@ void sandbox::mount_to_new_root(const char* mount_from, const char* mount_to, in
     if (mount(mount_from, mount_to, NULL, flags, NULL) == -1) {
         throw std::runtime_error(
             "Could not mount " +
-            std::string(mount_from) + ": " +
+            std::string(mount_from) + 
+            "to " + std::string(mount_to) + ": " +
             std::string(strerror(errno))
         );
     }
