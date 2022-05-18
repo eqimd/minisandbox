@@ -15,6 +15,8 @@ add_library(
         src/empowerment/empowerment.h
 )
 
+add_link_options(-lcap)
+
 add_executable(
         ${PROJECT_NAME}
         src/main.cpp
