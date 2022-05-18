@@ -40,14 +40,16 @@ void drop_privileges() {
 	if ((uid = getuid()) == 0) {
 		const char *sudo_uid = secure_getenv("SUDO_UID");
 		if (sudo_uid == NULL) {
-			printf("environment variable `SUDO_UID` not found\n");
-			return;
+			throw std::runtime_error(
+                "Environment variable `SUDO_UID` not found."
+            );
 		}
 		errno = 0;
 		uid = (uid_t) strtoll(sudo_uid, NULL, 10);
 		if (errno != 0) {
-			perror("under-/over-flow in converting `SUDO_UID` to integer");
-			return;
+            throw std::runtime_error(
+                "Under-/over- flow in converting `SUDO_UID` to integer."
+            );
 		}
 	}
 
@@ -55,37 +57,38 @@ void drop_privileges() {
 	if ((gid = getgid()) == 0) {
 		const char *sudo_gid = secure_getenv("SUDO_GID");
 		if (sudo_gid == NULL) {
-			printf("environment variable `SUDO_GID` not found\n");
-			return;
+            throw std::runtime_error(
+                "Environment variable `SUDO_GID` not found."
+            );
 		}
 		errno = 0;
 		gid = (gid_t) strtoll(sudo_gid, NULL, 10);
 		if (errno != 0) {
-			perror("under-/over-flow in converting `SUDO_GID` to integer");
-			return;
+            throw std::runtime_error(
+                "Under-/over- flow in converting `SUDO_GID` to integer."
+            );
 		}
 	}
 
+    errno = 0;
 	if (setgid(gid) != 0) {
-		perror("setgid");
-		return;
+        throw std::runtime_error(
+            "Error calling setgid: " +
+            std::string(strerror(errno))
+        );
 	}
 	if (setuid(uid) != 0) {
-		perror("setgid");
-		return;
-	}
-
-	// change your directory to somewhere else, just in case if you are in a
-	// root-owned one (e.g. /root)
-	if (chdir("/") != 0) {
-		perror("chdir");
-		return;
+        throw std::runtime_error(
+            "Error calling setuid: " +
+            std::string(strerror(errno))
+        );
 	}
 
 	// check if we successfully dropped the root privileges
 	if (setuid(0) == 0 || seteuid(0) == 0) {
-		printf("could not drop root privileges!\n");
-		return;
+        throw std::runtime_error(
+            "Could not drop root privileges."
+        );
 	}
 }
 
