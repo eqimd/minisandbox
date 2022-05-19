@@ -15,11 +15,10 @@ add_library(
         src/bomb/bomb.h
 )
 
-add_link_options(-lseccomp)
-
 add_executable(
         ${PROJECT_NAME}
         src/main.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE sandbox)
+target_link_libraries(${PROJECT_NAME} PUBLIC seccomp)

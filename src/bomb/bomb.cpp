@@ -22,30 +22,20 @@
 #include "bomb.h"
 
 
-#define die(...)                                           \
-    do                                                     \
-    {                                                      \
-        fprintf(stderr, "[E:%s:%d] ", __FILE__, __LINE__); \
-        fprintf(stderr, __VA_ARGS__);                      \
-        fprintf(stderr, "\n");                             \
-        exit(1);                                           \
-    } while (0)
-
-
 constexpr int FORK_LIMIT_DEFAULT = 5;
 
 
-struct PidStatus {
-    enum State {
-        kAfterSysCall,
-        kBeforeSysCall  
+struct pid_status {
+    enum state {
+        k_after_sys_call,
+        k_before_sys_call  
     };
     
     pid_t pid;
-    State current_state;
+    state current_st;
     int lastsysno = 0;
 
-    PidStatus(pid_t pid_) : pid { pid_ }, current_state { kAfterSysCall } {
+    pid_status(pid_t pid_) : pid { pid_ }, current_st { k_after_sys_call } {
         // std::cout << "TRACE NEW PID=" << pid << std::endl;
         ptrace(PTRACE_SETOPTIONS, 
                pid, 
@@ -56,12 +46,12 @@ struct PidStatus {
                | PTRACE_O_TRACECLONE);
     }
 
-    std::optional<user_regs_struct> HandleStatus(int status) {
-        if (current_state == kAfterSysCall) {
+    std::optional<user_regs_struct> handle_status(int status) {
+        if (current_st == k_after_sys_call) {
             if ((status >> 8) == (SIGTRAP | (PTRACE_EVENT_SECCOMP << 8))) {
                 user_regs_struct regs;
                 ptrace(PTRACE_GETREGS, pid, 0, &regs);
-                current_state = kBeforeSysCall;
+                current_st = k_before_sys_call;
                 lastsysno = regs.orig_rax;
                 return regs;
             }
@@ -69,15 +59,15 @@ struct PidStatus {
             if (WIFSTOPPED(status) && WSTOPSIG(status) & (1u << 7)) {
                 user_regs_struct regs;
                 ptrace(PTRACE_GETREGS, pid, 0, &regs);
-                current_state = kAfterSysCall;
+                current_st = k_after_sys_call;
                 return regs;
             }
         }
         return std::nullopt;
     }
 
-    void Resume() {
-        if (current_state == kBeforeSysCall) {
+    void resume() {
+        if (current_st == k_before_sys_call) {
            // await syscall exit
            ptrace(PTRACE_SYSCALL, pid, 0, 0);
         } else {
@@ -86,17 +76,17 @@ struct PidStatus {
         }
     }
 
-    void SetRegisters(const user_regs_struct& state) {
-        ptrace(PTRACE_SETREGS, pid, 0, &state);
+    void set_registers(const user_regs_struct& st) {
+        ptrace(PTRACE_SETREGS, pid, 0, &st);
     }
 };
 
 
 static void tracer(int fork_limit = FORK_LIMIT_DEFAULT) {
-    if (fork_limit < 0) die("wrong fork limit count");
+    if (fork_limit < 0) std::runtime_error("wrong fork limit count");
     int fork_limit_left = fork_limit;
 
-    std::unordered_map<pid_t, PidStatus> tracees;
+    std::unordered_map<pid_t, pid_status> tracees;
 
     while (true) {
         int status;
@@ -111,32 +101,32 @@ static void tracer(int fork_limit = FORK_LIMIT_DEFAULT) {
         }
 
         if (tracees.count(pid) == 0) {
-            tracees.emplace(pid, PidStatus { pid });
-            tracees.at(pid).Resume();
+            tracees.emplace(pid, pid_status { pid });
+            tracees.at(pid).resume();
             continue;
         }
 
         {
             auto& pid_state = tracees.at(pid);
-            auto regs = pid_state.HandleStatus(status);
-            if (regs && pid_state.current_state == PidStatus::kBeforeSysCall) {
-                auto state = *regs;
+            auto regs = pid_state.handle_status(status);
+            if (regs && pid_state.current_st == pid_status::k_before_sys_call) {
+                auto st = *regs;
                 if (pid_state.lastsysno == SYS_clone || pid_state.lastsysno == SYS_fork) {
                     if (fork_limit_left <= 0) {
-                        state.orig_rax = -1;
-                        pid_state.SetRegisters(state);
+                        st.orig_rax = -1;
+                        pid_state.set_registers(st);
                     }
                     fork_limit_left--;
                 }
-            } else if (regs && pid_state.current_state == PidStatus::kAfterSysCall) {
-                auto state = *regs;
-                if (state.orig_rax == -1) {
-                    state.rax = -EPERM;
-                    pid_state.SetRegisters(state);
+            } else if (regs && pid_state.current_st == pid_status::k_after_sys_call) {
+                auto st = *regs;
+                if (st.orig_rax == -1) {
+                    st.rax = -EPERM;
+                    pid_state.set_registers(st);
                 }
             }
         }
-        tracees.at(pid).Resume();
+        tracees.at(pid).resume();
     }
 }
 
@@ -144,13 +134,13 @@ static void tracer(int fork_limit = FORK_LIMIT_DEFAULT) {
 int minisandbox::forkbomb::add_tracer() {
     pid_t pid = fork();
     if (pid == -1) {
-        std::cerr << "add_tracer failed" << std::endl;
+        std::cerr << "minisandbox::forkbomb::add_tracer failed" << std::endl;
     }
     if (pid != 0) {
         tracer();
     } else {
         if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
-            die("main: ptrace(traceme) failed: %m");
+            throw std::runtime_error("minisandbox::forkbomb::add_tracer: ptrace(traceme) failed");
         }
 
         scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_ALLOW);
@@ -160,7 +150,7 @@ int minisandbox::forkbomb::add_tracer() {
         
         /* Остановиться и дождаться, пока отладчик отреагирует. */
         if (raise(SIGSTOP)) {
-            die("main: raise(SIGSTOP) failed: %m");
+            std::runtime_error("main: raise(SIGSTOP) failed");
         }
     }
     return pid;
