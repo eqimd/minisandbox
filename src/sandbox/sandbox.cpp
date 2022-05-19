@@ -49,8 +49,9 @@ int enter_pivot_root(void* arg) {
 
     struct clone_data* data = (struct clone_data*)(arg);
 
-    if (!minisandbox::empowerment::set_capabilities(data->executable)) 
-        return -1;
+    if (!minisandbox::empowerment::set_capabilities(data->executable)) {
+        throw std::runtime_error("Could not set capabilities.");
+    }
 
     minisandbox::empowerment::drop_privileges();
 
