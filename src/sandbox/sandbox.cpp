@@ -217,7 +217,6 @@ void sandbox::run() {
     );
 
     fs::create_directory("programming");
-    mount_to_new_root("/home/eqimd/programming", "programming", MS_BIND);
 
     struct clone_data data = {};
     data.executable = exec_in_sandbox.c_str();
