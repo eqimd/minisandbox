@@ -21,10 +21,6 @@
 
 #include "bomb.h"
 
-
-constexpr int FORK_LIMIT_DEFAULT = 5;
-
-
 struct pid_status {
     enum state {
         k_after_sys_call,
@@ -82,7 +78,7 @@ struct pid_status {
 };
 
 
-static void tracer(int fork_limit = FORK_LIMIT_DEFAULT) {
+static void tracer(int fork_limit) {
     if (fork_limit < 0) std::runtime_error("wrong fork limit count");
     int fork_limit_left = fork_limit;
 
@@ -131,13 +127,13 @@ static void tracer(int fork_limit = FORK_LIMIT_DEFAULT) {
 }
 
 
-int minisandbox::forkbomb::add_tracer() {
+int minisandbox::forkbomb::add_tracer(int fork_limit) {
     pid_t pid = fork();
     if (pid == -1) {
         std::cerr << "minisandbox::forkbomb::add_tracer failed" << std::endl;
     }
     if (pid != 0) {
-        tracer();
+        tracer(fork_limit);
     } else {
         if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
             throw std::runtime_error("minisandbox::forkbomb::add_tracer: ptrace(traceme) failed");

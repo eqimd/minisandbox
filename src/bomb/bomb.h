@@ -1,5 +1,7 @@
 namespace minisandbox::forkbomb {
 
-int add_tracer();
+constexpr int FORK_LIMIT_DEFAULT = 5;
+
+int add_tracer(int fork_limit = FORK_LIMIT_DEFAULT);
 
 };
