@@ -1,6 +1,6 @@
 namespace minisandbox::empowerment {
 
-    bool set_uid();
+    void drop_privileges();
 
     bool set_capabilities(const char*);
 
