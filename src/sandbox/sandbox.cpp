@@ -73,14 +73,8 @@ int enter_pivot_root(void* arg) {
 }
 
 sandbox::sandbox(const sandbox_data& sb_data) {
-    executable_path = fs::absolute(sb_data.executable_path);
-    rootfs_path = sb_data.rootfs_path;
-    argv = sb_data.argv;
-    envp = sb_data.envp;
-    perm_flags = sb_data.perm_flags;
-    time_execution_limit_ms = sb_data.time_execution_limit_ms;
-    ram_limit_bytes = sb_data.ram_limit_bytes;
-    stack_size = sb_data.stack_size;
+    _data = sb_data;
+    _data.executable_path = fs::absolute(_data.executable_path);
 }
 
 sandbox::~sandbox() {
@@ -92,62 +86,62 @@ sandbox::~sandbox() {
 void sandbox::run() {
     // TODO: run only elf???
     
-    if (!fs::exists(executable_path)) {
+    if (!fs::exists(_data.executable_path)) {
         throw std::runtime_error(
             "Executable " +
-            executable_path.string() +
+            _data.executable_path.string() +
             " does not exist."
         );
     }
 
-    if (!fs::exists(rootfs_path)) {
+    if (!fs::exists(_data.rootfs_path)) {
         throw std::runtime_error(
             "Rootfs directory " +
-            rootfs_path.string() +
+            _data.rootfs_path.string() +
             " does not exist."
         );
     }
-    if (!fs::is_directory(rootfs_path)) {
+    if (!fs::is_directory(_data.rootfs_path)) {
         throw std::runtime_error(
             "Rootfs path " +
-            rootfs_path.string() +
+            _data.rootfs_path.string() +
             " is not a directory."
         );
     }
 
-    if (stack_size == 0) {
+    if (_data.stack_size == 0) {
         throw std::runtime_error(
             "Stack size should not be zero."
         );
     }
 
     errno = 0;
-    clone_stack = mmap(NULL, stack_size, PROT_READ | PROT_WRITE,
+    clone_stack = mmap(NULL, _data.stack_size, PROT_READ | PROT_WRITE,
                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
     if (clone_stack == MAP_FAILED) {
         throw std::runtime_error(
             "Could not mmap " +
-            std::to_string(stack_size) +
+            std::to_string(_data.stack_size) +
             " bytes of memory for stack: " +
             std::string(strerror(errno))
         );
     }
-    void* stack_top = clone_stack + stack_size;
+    void* stack_top = clone_stack + _data.stack_size;
 
-    bind_new_root(rootfs_path.c_str());
-    fs::current_path(rootfs_path);
+    bind_new_root(_data.rootfs_path.c_str());
+    fs::current_path(_data.rootfs_path);
 
     fs::create_directory(MINISANDBOX_EXEC);
 
-    fs::path exec_in_sandbox = fs::path(MINISANDBOX_EXEC) / executable_path.filename();
-    fs::copy_file(executable_path, exec_in_sandbox);
+    fs::path exec_in_sandbox = fs::path(MINISANDBOX_EXEC) / _data.executable_path.filename();
+    fs::copy_file(_data.executable_path, exec_in_sandbox);
 
     mount_to_new_root(NULL, "/", MS_PRIVATE | MS_REC);
 
     std::vector<const char*> argv_cstr;
     std::transform(
-        argv.begin(),
-        argv.end(),
+        _data.argv.begin(),
+        _data.argv.end(),
         std::back_inserter(argv_cstr),
         [](const std::string& s) {
             return s.c_str();
@@ -155,8 +149,8 @@ void sandbox::run() {
     );
     std::vector<const char*> envp_cstr;
     std::transform(
-        envp.begin(),
-        envp.end(),
+        _data.envp.begin(),
+        _data.envp.end(),
         std::back_inserter(envp_cstr),
         [](const std::string& s) {
             return s.c_str();
@@ -226,7 +220,7 @@ void sandbox::clean_after_run() {
     unmount(".", MNT_DETACH);
     fs::remove_all(MINISANDBOX_EXEC);
     if (clone_stack != nullptr) {
-        munmap(clone_stack, stack_size);
+        munmap(clone_stack, _data.stack_size);
         clone_stack = nullptr;
     }
 }
