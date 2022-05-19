@@ -216,8 +216,6 @@ void sandbox::run() {
         }
     );
 
-    fs::create_directory("programming");
-
     struct clone_data data = {};
     data.executable = exec_in_sandbox.c_str();
     data.argv = const_cast<char**>(argv_cstr.data());
