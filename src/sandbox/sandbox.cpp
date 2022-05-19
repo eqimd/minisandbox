@@ -21,12 +21,6 @@ constexpr char* MINISANDBOX_EXEC = ".minisandbox_exec";
 
 namespace minisandbox {
 
-struct clone_data {
-    const char* executable;
-    char** argv;
-    char** envp;
-};
-
 int enter_pivot_root(void* arg) {
     fs::create_directories(PUT_OLD);
     
@@ -48,9 +42,9 @@ int enter_pivot_root(void* arg) {
     }
     fs::remove(PUT_OLD);
 
-    struct clone_data* data = (struct clone_data*)(arg);
+    sandbox_data* data = reinterpret_cast<sandbox_data*>(arg);
 
-    if (!minisandbox::empowerment::set_capabilities(data->executable)) {
+    if (!minisandbox::empowerment::set_capabilities(data->executable_path.c_str())) {
         throw std::runtime_error("Could not set capabilities.");
     }
 
@@ -60,11 +54,33 @@ int enter_pivot_root(void* arg) {
         return 0;                                       // TODO: update it?
     }
 
+    std::vector<const char*> argv;
+    std::transform(
+        data->argv.begin(),
+        data->argv.end(),
+        std::back_inserter(argv),
+        [](const std::string& s) {
+            return s.c_str();
+        }
+    );
+    std::vector<const char*> envp;
+    std::transform(
+        data->envp.begin(),
+        data->envp.end(),
+        std::back_inserter(envp),
+        [](const std::string& s) {
+            return s.c_str();
+        }
+    );
+
+    char* const* argv_casted = const_cast<char**>(argv.data());
+    char* const* envp_casted = const_cast<char**>(envp.data());
+
     errno = 0;
-    if (execvpe(data->executable, data->argv, data->envp) == -1) {
+    if (execvpe(data->executable_path.c_str(), argv_casted, envp_casted) == -1) {
         throw std::runtime_error(
             "Could not execute " +
-            std::string(data->executable) + ": " +
+            data->executable_path.string() + ": " +
             std::string(strerror(errno))
         );
     }
@@ -135,39 +151,16 @@ void sandbox::run() {
 
     fs::path exec_in_sandbox = fs::path(MINISANDBOX_EXEC) / _data.executable_path.filename();
     fs::copy_file(_data.executable_path, exec_in_sandbox);
+    _data.executable_path = exec_in_sandbox;
 
     mount_to_new_root(NULL, "/", MS_PRIVATE | MS_REC);
-
-    std::vector<const char*> argv_cstr;
-    std::transform(
-        _data.argv.begin(),
-        _data.argv.end(),
-        std::back_inserter(argv_cstr),
-        [](const std::string& s) {
-            return s.c_str();
-        }
-    );
-    std::vector<const char*> envp_cstr;
-    std::transform(
-        _data.envp.begin(),
-        _data.envp.end(),
-        std::back_inserter(envp_cstr),
-        [](const std::string& s) {
-            return s.c_str();
-        }
-    );
-
-    struct clone_data data = {};
-    data.executable = exec_in_sandbox.c_str();
-    data.argv = const_cast<char**>(argv_cstr.data());
-    data.envp = const_cast<char**>(envp_cstr.data());
 
     errno = 0;
     pid_t pid = clone(
         enter_pivot_root,
         stack_top,
         CLONE_NEWNS | CLONE_NEWPID | SIGCHLD,
-        &data
+        reinterpret_cast<void*>(&_data)
     );
     if (pid == -1) {
         throw std::runtime_error(
