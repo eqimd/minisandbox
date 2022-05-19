@@ -21,7 +21,7 @@ static void prepare_procfs()
     fs::create_directories("/proc");
 
     if (mount("proc", "/proc", "proc", 0, "")) {
-        throw std::runtime_error(std::string(strerror(errno)));
+        throw std::runtime_error("Could not mount /proc : " + std::string(strerror(errno)));
     }
 }
 
