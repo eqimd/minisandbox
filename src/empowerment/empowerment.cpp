@@ -6,19 +6,14 @@
 
 #include "empowerment.h"
 
-using std::cout;
-using std::cerr;
-using std::endl;
-using std::strerror;
 
-bool set_uid() {
+bool minisandbox::empowerment::set_uid() {
     uid_t ruid, euid, suid;
     errno = 0;
     if (getresuid(&ruid, &euid, &suid) == -1) {
         perror("set_uid: getresuid failed");
         return false;
     }
-    std::cout << "empower " << ruid << " " << euid << " " << suid << "\n";  //
 
     while (setresuid(-1, ruid, ruid) == -1) {
         if (errno == EAGAIN) {
@@ -31,60 +26,57 @@ bool set_uid() {
     return true;
 }
 
+// debug only
 static void show_capabilities(const char* filename) {
     errno = 0;
     cap_t caps = cap_get_file(filename);
     if (caps == NULL) {
         if (errno != ENODATA) {
-            perror("show_capabilities.cap_get_file");
+            perror("show_capabilities.cap_get_file failed");
             return;
         }
         else {
-            cout << "caps: " << endl;
+            std::cout << "caps: " << std::endl;
         }
     }
     else {
         char* txt_caps = cap_to_text(caps, NULL);
-        if (txt_caps == NULL)
-            perror("show_capabilities.cap_to_text");
+        if (txt_caps == NULL) {
+            cap_free(caps);
+            perror("show_capabilities.cap_to_text failed");
+            return;
+        }
         else {
-            cout << "caps: " << txt_caps << endl;
-            if (cap_free(txt_caps) != 0)
-                perror("cap_free");
+            std::cout << "caps: " << txt_caps << std::endl;
+            if (cap_free(txt_caps) != 0 || cap_free(caps) != 0)
+                perror("show_capabilities.cap_free failed");
+            return;
         }
     }
     
     if (cap_free(caps) != 0)
-        perror("cap_free");
+        perror("show_capabilities.cap_free failed");
 }
 
-bool set_capabilities(const char* filename) {
+bool minisandbox::empowerment::set_capabilities(const char* filename) {
     // show_capabilities(filename);
-
-    bool ret = true;
     char txt_caps[] = "cap_net_raw=";
     errno = 0;
     cap_t caps = cap_from_text(txt_caps);
     if (caps == NULL) {
-        perror("set_capabilities.cap_from_text");
+        perror("set_capabilities.cap_from_text failed");
         return false;
     }
     else {
-        uid_t ruid, euid, suid;
-        errno = 0;
-        if (getresuid(&ruid, &euid, &suid) == -1) {
-            perror("set_uid: getresuid failed");
-            return false;
-        }
         if (cap_set_file(filename, caps) == -1) {
-            cerr << "Failed to set capabilities of file " << filename << ": " << strerror(errno) << endl;
-            ret = false;
+            std::cerr << "Failed to set capabilities of file " << filename << ": " << std::strerror(errno) << std::endl;
+            return false;
         }
         else {
             if (cap_free(caps) != 0)
-                perror("cap_free");
+                perror("set_capabilities.cap_free failed");
 //             show_capabilities(filename);
         }
     }
-    return ret;
+    return true;
 }

@@ -27,8 +27,6 @@ struct clone_data {
 };
 
 int enter_pivot_root(void* arg) {
-    minisandbox::empowerment::set_uid();
-
     fs::create_directories(PUT_OLD);
     
     errno = 0;
@@ -37,8 +35,7 @@ int enter_pivot_root(void* arg) {
             "pivot_root is not succeeded: " +
             std::string(strerror(errno))
         );
-    }
-    
+    }    
     fs::current_path("/");
 
     errno = 0;
@@ -50,9 +47,13 @@ int enter_pivot_root(void* arg) {
     }
     fs::remove(PUT_OLD);
 
+    if (!minisandbox::empowerment::set_uid()) 
+        return -1;
+
     struct clone_data* data = (struct clone_data*)(arg);
 
-    minisandbox::empowerment::set_capabilities(data->executable);
+    if (!minisandbox::empowerment::set_capabilities(data->executable)) 
+        return -1;
 
     errno = 0;
     if (execvpe(data->executable, data->argv, data->envp) == -1) {

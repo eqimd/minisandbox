@@ -15,11 +15,10 @@ add_library(
         src/empowerment/empowerment.h
 )
 
-add_link_options(-lcap)
-
 add_executable(
         ${PROJECT_NAME}
         src/main.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE sandbox)
+target_link_libraries(${PROJECT_NAME} PUBLIC cap)
