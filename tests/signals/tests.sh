@@ -20,3 +20,4 @@ rm wait
 rm main
 
 
+sudo ../../minisandbox config_kill_parent.json

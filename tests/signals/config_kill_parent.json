@@ -1,0 +1,10 @@
+{
+    "executable": "kill_parent.sh",
+    "argv": "",
+    "envp": "",
+    "rootfs": "../../rootfs",
+    "perm_flags": 0,
+    "ram_limit": 10240,
+    "stack_size": 10240,
+    "time_limit": 60
+}

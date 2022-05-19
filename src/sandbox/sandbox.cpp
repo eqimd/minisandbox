@@ -17,6 +17,7 @@
 #include "sandbox.h"
 #include "empowerment/empowerment.h"
 #include "bomb/bomb.h"
+#include <csignal>
 
 #define IOPRIO_WHO_PGRP     (2)
 #define IOPRIO_CLASS_RT     (1)
@@ -35,7 +36,17 @@ void prepare_procfs()
     }
 }
 
+void killHandler(int signum) {
+   std::cerr << "Interrupt signal to sandbox received.\n";
+}
+
+void init_signal_handlers() {
+    signal(SIGINT, killHandler);
+    signal(SIGTERM, killHandler);
+}
+
 int enter_pivot_root(void* arg) {
+    init_signal_handlers();
     fs::create_directories(PUT_OLD);
     
     errno = 0;
