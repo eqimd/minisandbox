@@ -15,8 +15,14 @@
 #include "sandbox.h"
 #include "empowerment/empowerment.h"
 #include "bomb/bomb.h"
+#include <csignal>
 
-static void prepare_procfs()
+constexpr char* PUT_OLD = ".put_old";
+constexpr char* MINISANDBOX_EXEC = ".minisandbox_exec";
+
+namespace minisandbox {
+
+void prepare_procfs()
 {
     fs::create_directories("/proc");
 
@@ -25,12 +31,17 @@ static void prepare_procfs()
     }
 }
 
-constexpr char* PUT_OLD = ".put_old";
-constexpr char* MINISANDBOX_EXEC = ".minisandbox_exec";
+void killHandler(int signum) {
+   std::cerr << "Interrupt signal to sandbox received.\n";
+}
 
-namespace minisandbox {
+void init_signal_handlers() {
+    signal(SIGINT, killHandler);
+    signal(SIGTERM, killHandler);
+}
 
 int enter_pivot_root(void* arg) {
+    init_signal_handlers();
     fs::create_directories(PUT_OLD);
     
     errno = 0;
