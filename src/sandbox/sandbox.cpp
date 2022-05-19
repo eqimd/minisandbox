@@ -121,8 +121,17 @@ void sandbox::run() {
         );
     }
 
+    errno = 0;
     clone_stack = mmap(NULL, stack_size, PROT_READ | PROT_WRITE,
                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
+    if (clone_stack == MAP_FAILED) {
+        throw std::runtime_error(
+            "Could not mmap " +
+            std::to_string(stack_size) +
+            " bytes of memory for stack: " +
+            std::string(strerror(errno))
+        );
+    }
     void* stack_top = clone_stack + stack_size;
 
     bind_new_root(rootfs_path.c_str());
