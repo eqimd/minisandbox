@@ -19,6 +19,7 @@ struct sandbox_data {
     milliseconds time_execution_limit_ms;
     bytes ram_limit_bytes;
     bytes stack_size;
+    int priority;
 };
 
 class sandbox {
@@ -37,6 +38,7 @@ private:
     void unmount(const char* path, int flags);
     void bind_new_root(const char* new_root);
     void clean_after_run();
+    void set_priority();
 };
 
 };

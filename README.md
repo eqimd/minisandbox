@@ -25,6 +25,7 @@ sudo apt-get install libcap-dev
     "perm_flags": 0,
     "ram_limit": 10240,
     "stack_size": 10240,
-    "time_limit": 60
+    "time_limit": 60,
+    "priority": 0
 }
 ```

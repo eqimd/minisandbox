@@ -8,6 +8,7 @@
 #include <signal.h>
 #include <iostream>
 #include <fstream>
+#include <sys/resource.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <vector>
@@ -15,6 +16,12 @@
 #include "sandbox.h"
 #include "empowerment/empowerment.h"
 #include "bomb/bomb.h"
+
+enum {
+	IOPRIO_WHO_PROCESS = 1,
+	IOPRIO_WHO_PGRP,
+	IOPRIO_WHO_USER,
+};
 
 constexpr char* PUT_OLD = ".put_old";
 constexpr char* MINISANDBOX_EXEC = ".minisandbox_exec";
@@ -152,6 +159,7 @@ void sandbox::run() {
     _data.executable_path = exec_in_sandbox;
 
     mount_to_new_root(NULL, "/", MS_PRIVATE | MS_REC);
+    set_priority();
 
     errno = 0;
     pid_t pid = clone(
@@ -212,6 +220,21 @@ void sandbox::clean_after_run() {
     if (clone_stack != nullptr) {
         munmap(clone_stack, _data.stack_size);
         clone_stack = nullptr;
+    }
+}
+
+void sandbox::set_priority() {
+    if (_data.priority < -20 || _data.priority > 19) {
+        throw std::runtime_error("Wrong priority value");
+    }
+
+    errno = 0;
+    setpriority(PRIO_PGRP, getpgid(getpid()), _data.priority);
+    if (errno != 0) {
+        throw std::runtime_error(
+            "Could not set priority: " +
+            std::string(strerror(errno))
+        );
     }
 }
 

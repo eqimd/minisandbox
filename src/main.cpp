@@ -31,6 +31,8 @@ int main(int argc, char* argv[]) {
         data.stack_size = config["stack_size"];
         data.time_execution_limit_ms = config["time_limit"];
 
+        data.priority = config["priority"];
+
         minisandbox::sandbox sb(data);
 
         sb.run();
