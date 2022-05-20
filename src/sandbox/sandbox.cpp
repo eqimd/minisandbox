@@ -17,6 +17,11 @@
 #include "empowerment/empowerment.h"
 #include "bomb/bomb.h"
 
+#define IOPRIO_WHO_PGRP     (2)
+#define IOPRIO_CLASS_RT     (1)
+#define IOPRIO_CLASS_SHIFT	(13)
+#define IOPRIO_PRIO_VALUE(class, data)	(((class) << IOPRIO_CLASS_SHIFT) | data)
+
 constexpr char* PUT_OLD = ".put_old";
 constexpr char* MINISANDBOX_EXEC = ".minisandbox_exec";
 
@@ -222,11 +227,23 @@ void sandbox::set_priority() {
         throw std::runtime_error("Wrong priority value");
     }
 
+    if (_data.io_priority < 0 || _data.io_priority > 7) {
+        throw std::runtime_error("Wrong io_priority value");        
+    }
+
     errno = 0;
     setpriority(PRIO_PGRP, getpgid(getpid()), _data.priority);
     if (errno != 0) {
         throw std::runtime_error(
             "Could not set priority: " +
+            std::string(strerror(errno))
+        );
+    }
+
+    errno = 0;
+    if (syscall(SYS_ioprio_set, IOPRIO_WHO_PGRP, getpgid(getpid()), IOPRIO_PRIO_VALUE(IOPRIO_CLASS_RT, _data.io_priority)) == -1) {
+        throw std::runtime_error(
+            "Could not set io_priority: " +
             std::string(strerror(errno))
         );
     }

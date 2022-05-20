@@ -32,6 +32,7 @@ int main(int argc, char* argv[]) {
         data.time_execution_limit_ms = config["time_limit"];
 
         data.priority = config["priority"];
+        data.io_priority = config["io_priority"];
 
         minisandbox::sandbox sb(data);
 

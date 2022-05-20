@@ -20,6 +20,7 @@ struct sandbox_data {
     bytes ram_limit_bytes;
     bytes stack_size;
     int priority;
+    int io_priority;
 };
 
 class sandbox {
