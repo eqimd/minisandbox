@@ -36,14 +36,14 @@ void prepare_procfs() {
     }
 }
 
-void killHandler(int signum) {
+void child_kill_handler(int signum) {
    std::cerr << "Interrupt signal to sandbox received." << std::endl;
 }
 
 void init_child_signal_handlers() {
-    signal(SIGINT, killHandler);
-    signal(SIGTERM, killHandler);
-    signal(SIGSTOP, killHandler);
+    signal(SIGINT, child_kill_handler);
+    signal(SIGTERM, child_kill_handler);
+    signal(SIGSTOP, child_kill_handler);
 }
 
 int enter_pivot_root(void* arg) {
