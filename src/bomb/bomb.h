@@ -1,5 +1,10 @@
+#pragma once
+
+constexpr int FORK_LIMIT_DEFAULT = 5;
+
 namespace minisandbox::forkbomb {
 
-int add_tracer();
+void make_tracee();
+void tracer(int fork_limit);
 
 };

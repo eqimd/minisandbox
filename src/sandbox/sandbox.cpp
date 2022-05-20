@@ -50,9 +50,7 @@ int enter_pivot_root(void* arg) {
 
     minisandbox::empowerment::drop_privileges();
     
-    if (minisandbox::forkbomb::add_tracer() != 0) {     // TODO: start trace before?
-        return 0;                                       // TODO: update it?
-    }
+    minisandbox::forkbomb::make_tracee();
 
     std::vector<const char*> argv;
     std::transform(
@@ -142,7 +140,7 @@ void sandbox::run() {
             std::string(strerror(errno))
         );
     }
-    void* stack_top = clone_stack + _data.stack_size;
+    void* stack_top = reinterpret_cast<char*>(clone_stack) + _data.stack_size;
 
     bind_new_root(_data.rootfs_path.c_str());
     fs::current_path(_data.rootfs_path);
@@ -168,9 +166,8 @@ void sandbox::run() {
             std::string(strerror(errno))
         );
     }
-
-    int statloc;
-    while (waitpid(pid, &statloc, 0) > 0) {}
+    
+    minisandbox::forkbomb::tracer(FORK_LIMIT_DEFAULT);
 
     clean_after_run();
 }
