@@ -35,13 +35,8 @@ public:
     void run();
 
 private:
-    fs::path executable_path;
-    fs::path rootfs_path;
-    std::vector<std::string> argv;
-    std::vector<std::string> envp;
-    int perm_flags;
+    sandbox_data _data = {};
     std::vector<sandbox_rlimit> rlimits;
-    bytes stack_size;
 
     void* clone_stack = nullptr;
     
