@@ -23,17 +23,6 @@ constexpr char* MINISANDBOX_EXEC = ".minisandbox_exec";
 namespace minisandbox {
 
 int enter_pivot_root(void* arg) {
-    //Allow tracing
-    if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
-        exit(EXIT_FAILURE);
-    }
-    // Stop n wait for tracer reaction
-    if (raise(SIGSTOP)) {
-        exit(EXIT_FAILURE);
-    }
-
-    drop_privileges();
-
     fs::create_directories(PUT_OLD);
     
     errno = 0;
@@ -183,6 +172,7 @@ void sandbox::run() {
         );
     }
     
+    set_rlimits();
     minisandbox::forkbomb::tracer(FORK_LIMIT_DEFAULT);
 
     clean_after_run();
