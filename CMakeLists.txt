@@ -16,7 +16,7 @@ set(sandbox_src
 )
 
 find_package(GTest REQUIRED)
-add_subdirectory(tests/rlimits)
+add_subdirectory(tests)
 
 add_library(
         sandbox

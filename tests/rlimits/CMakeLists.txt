@@ -3,6 +3,6 @@ add_subdirectory(time)
 
 add_executable(rlimits_test
         ${sandbox_src}
-        test.cpp)
-
+        rlimits_test.cpp)
+        
 target_link_libraries(rlimits_test ${test_libs} sandbox)
