@@ -62,6 +62,10 @@ struct pid_status {
             if (WSTOPSIG(status) == SIGSEGV) {
                 throw std::runtime_error("SIGSEGV was thrown in child process");
             }
+        } else if (WIFSIGNALED(status)) {
+            if (WTERMSIG(status) == SIGKILL) {
+                throw std::runtime_error("Process was killed");
+            }
         }
 
         return std::nullopt;
