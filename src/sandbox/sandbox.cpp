@@ -16,14 +16,14 @@
 #include "empowerment/empowerment.h"
 #include "bomb/bomb.h"
 #include <csignal>
+#include <functional>
 
 constexpr char* PUT_OLD = ".put_old";
 constexpr char* MINISANDBOX_EXEC = ".minisandbox_exec";
 
 namespace minisandbox {
 
-void prepare_procfs()
-{
+void prepare_procfs() {
     fs::create_directories("/proc");
 
     if (mount("proc", "/proc", "proc", 0, "")) {
@@ -32,16 +32,17 @@ void prepare_procfs()
 }
 
 void killHandler(int signum) {
-   std::cerr << "Interrupt signal to sandbox received.\n";
+   std::cerr << "Interrupt signal to sandbox received." << std::endl;
 }
 
-void init_signal_handlers() {
+void init_child_signal_handlers() {
     signal(SIGINT, killHandler);
     signal(SIGTERM, killHandler);
+    signal(SIGSTOP, killHandler);
 }
 
 int enter_pivot_root(void* arg) {
-    init_signal_handlers();
+    init_child_signal_handlers();
     fs::create_directories(PUT_OLD);
     
     errno = 0;
@@ -122,8 +123,41 @@ sandbox::~sandbox() {
     } catch (...) {}
 }
 
+std::function<void(int)> kill_child, stop_child, cont_child;
+void kill_handler(int signal) { kill_child(signal); }
+void stop_handler(int signal) { stop_child(signal); }
+void cont_handler(int signal) { cont_child(signal); }
+
+void print_signals_help() {
+    std::cout << "To kill app in sandbox send SIGINT or SIGTERM signal to main process, (pid: " << getpid() << ")" << std::endl;
+    std::cout << "To stop app in sandbox send SIGTSTP signal to main process, (pid: " << getpid() << ")" << std::endl;
+    std::cout << "To continue app in sandbox send SIGCONT signal to main process, (pid: " << getpid() << ")" << std::endl;
+}
+
+
+void init_main_handlers(const pid_t& child) {
+    kill_child = [&child](int signum) { 
+        kill(-getpgid(child), SIGKILL);
+    };
+
+    stop_child = [&child](int signum) { 
+        kill(-getpgid(child), SIGSTOP);
+    };
+
+    cont_child = [&child](int signum) { 
+        kill(-getpgid(child), SIGCONT);
+    };
+
+    signal(SIGINT, kill_handler);
+    signal(SIGTERM, kill_handler);
+    signal(SIGTSTP, stop_handler);
+    signal(SIGCONT, cont_handler);
+}
+
+
 void sandbox::run() {
     // TODO: run only elf???
+    print_signals_help();
     
     if (!fs::exists(_data.executable_path)) {
         throw std::runtime_error(
@@ -185,6 +219,9 @@ void sandbox::run() {
         CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWPID | SIGCHLD,
         reinterpret_cast<void*>(&_data)
     );
+
+    init_main_handlers(pid);
+
     if (pid == -1) {
         throw std::runtime_error(
             "Could not clone process: " +

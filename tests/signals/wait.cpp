@@ -3,7 +3,8 @@
 
 int main() {
     while(true) {
-        usleep(10000000);
+        std::cout << "doing something\n";
+        usleep(1000000);
     }
     return 0;
 }
