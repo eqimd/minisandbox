@@ -131,7 +131,6 @@ void tracer(int fork_limit) {
     }
 }
 
-
 void make_tracee() {
     errno = 0;
     if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
