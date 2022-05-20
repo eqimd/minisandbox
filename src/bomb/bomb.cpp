@@ -19,6 +19,7 @@
 #include <atomic>
 #include <unordered_map>
 #include <string.h>
+#include <signal.h>
 
 #include "bomb.h"
 
@@ -57,6 +58,10 @@ struct pid_status {
             ptrace(PTRACE_GETREGS, pid, 0, &regs);
             current_st = k_after_sys_call;
             return regs;
+        } else if (WIFSTOPPED(status)) {
+            if (WSTOPSIG(status) == SIGSEGV) {
+                throw std::runtime_error("SIGSEGV was thrown in child process");
+            }
         }
 
         return std::nullopt;
