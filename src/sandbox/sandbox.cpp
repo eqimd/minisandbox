@@ -17,12 +17,6 @@
 #include "empowerment/empowerment.h"
 #include "bomb/bomb.h"
 
-enum {
-	IOPRIO_WHO_PROCESS = 1,
-	IOPRIO_WHO_PGRP,
-	IOPRIO_WHO_USER,
-};
-
 constexpr char* PUT_OLD = ".put_old";
 constexpr char* MINISANDBOX_EXEC = ".minisandbox_exec";
 
