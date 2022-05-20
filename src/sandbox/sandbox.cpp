@@ -62,9 +62,7 @@ int enter_pivot_root(void* arg) {
 
     minisandbox::empowerment::drop_privileges();
     
-    if (minisandbox::forkbomb::add_tracer() != 0) {     // TODO: start trace before?
-        return 0;                                       // TODO: update it?
-    }
+    minisandbox::forkbomb::make_tracee();
 
     std::vector<const char*> argv;
     std::transform(
@@ -158,7 +156,7 @@ void sandbox::run() {
             std::string(strerror(errno))
         );
     }
-    void* stack_top = clone_stack + _data.stack_size;
+    void* stack_top = reinterpret_cast<char*>(clone_stack) + _data.stack_size;
 
     bind_new_root(_data.rootfs_path.c_str());
     fs::current_path(_data.rootfs_path);
@@ -184,41 +182,8 @@ void sandbox::run() {
             std::string(strerror(errno))
         );
     }
-
-    set_rlimits();
-    int statloc;
-    if (waitpid(child_pid, &statloc, 0) < 0) {
-        throw std::runtime_error("Error while waiting for ptraceme from child");
-    }
-    if (!WIFSTOPPED(statloc) || WSTOPSIG(statloc) != SIGSTOP) {
-        throw std::runtime_error("Unexpected returned status from child");
-    }
-
-    ptrace(PTRACE_SETOPTIONS, child_pid, 0, PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACEEXIT);
-    auto now_time = std::chrono::steady_clock::now();
-    int ret = 0;
-    // TODO: refactor me
-    while (!WIFEXITED(statloc)) {
-        ptrace(PTRACE_SYSCALL, child_pid, 0, 0);
-        ret = waitpid(child_pid, &statloc, 0);
-        if (WIFSTOPPED(statloc) && WSTOPSIG(statloc) & (1u << 7)) {
-            //do smth
-        } else {
-            if (WSTOPSIG(statloc) == 11) {
-                throw std::runtime_error("Segfault was thrown");
-            }
-            continue;
-        }
-
-        while (!WIFEXITED(statloc)) {
-            ptrace(PTRACE_SYSCALL, child_pid, 0, 0);
-            waitpid(child_pid, &statloc, 0);
-
-            if (WIFSTOPPED(statloc) && WSTOPSIG(statloc) & (1u << 7)) {
-                break;
-            } 
-        }
-    }
+    
+    minisandbox::forkbomb::tracer(FORK_LIMIT_DEFAULT);
 
     clean_after_run();
 }
