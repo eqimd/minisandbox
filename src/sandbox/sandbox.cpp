@@ -148,6 +148,8 @@ void sandbox::run() {
     void* stack_top = reinterpret_cast<char*>(clone_stack) + _data.stack_size;
 
     bind_new_root(_data.rootfs_path.c_str());
+
+    old_path = fs::current_path();
     fs::current_path(_data.rootfs_path);
 
     fs::create_directory(MINISANDBOX_EXEC);
@@ -219,6 +221,7 @@ void sandbox::clean_after_run() {
         munmap(clone_stack, _data.stack_size);
         clone_stack = nullptr;
     }
+    fs::current_path(old_path);
 }
 
 void sandbox::set_rlimits() {

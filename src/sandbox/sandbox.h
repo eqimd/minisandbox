@@ -47,6 +47,8 @@ private:
     void clean_after_run();
 
     pid_t child_pid;
+
+    std::string old_path;
 };
 
 };
