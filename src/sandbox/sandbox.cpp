@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <vector>
+#include <sys/ptrace.h>
 #include <sys/param.h>
 #include "sandbox.h"
 #include "empowerment/empowerment.h"
@@ -95,6 +96,9 @@ int enter_pivot_root(void* arg) {
 sandbox::sandbox(const sandbox_data& sb_data) {
     _data = sb_data;
     _data.executable_path = fs::absolute(_data.executable_path);
+  
+    rlimits.push_back({RLIMIT_AS, {sb_data.ram_limit_bytes, sb_data.ram_limit_bytes}});
+    rlimits.push_back({RLIMIT_CPU, {sb_data.time_execution_limit_ms / 1000, sb_data.time_execution_limit_ms / 1000}}); //potentially zero
 }
 
 sandbox::~sandbox() {
@@ -138,6 +142,7 @@ void sandbox::run() {
     errno = 0;
     clone_stack = mmap(NULL, _data.stack_size, PROT_READ | PROT_WRITE,
                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
+
     if (clone_stack == MAP_FAILED) {
         throw std::runtime_error(
             "Could not mmap " +
@@ -149,6 +154,8 @@ void sandbox::run() {
     void* stack_top = reinterpret_cast<char*>(clone_stack) + _data.stack_size;
 
     bind_new_root(_data.rootfs_path.c_str());
+
+    old_path = fs::current_path();
     fs::current_path(_data.rootfs_path);
 
     fs::create_directory(MINISANDBOX_EXEC);
@@ -161,19 +168,20 @@ void sandbox::run() {
     set_priority();
 
     errno = 0;
-    pid_t pid = clone(
+    child_pid = clone(
         enter_pivot_root,
         stack_top,
         CLONE_NEWNS | CLONE_NEWPID | SIGCHLD,
         reinterpret_cast<void*>(&_data)
     );
-    if (pid == -1) {
+    if (child_pid == -1) {
         throw std::runtime_error(
             "Could not clone process: " +
             std::string(strerror(errno))
         );
     }
     
+    set_rlimits();
     minisandbox::forkbomb::tracer(FORK_LIMIT_DEFAULT);
 
     clean_after_run();
@@ -219,6 +227,17 @@ void sandbox::clean_after_run() {
     if (clone_stack != nullptr) {
         munmap(clone_stack, _data.stack_size);
         clone_stack = nullptr;
+    }
+    fs::current_path(old_path);
+}
+
+void sandbox::set_rlimits() {
+    for (const sandbox_rlimit &r: rlimits) {
+        errno = 0;
+        int ret = prlimit(child_pid, r.resource, &r.rlim, NULL);
+        if (ret < 0) {
+            throw std::runtime_error("Error while setting rlimits: " + std::string(strerror(errno)));
+        }
     }
 }
 
