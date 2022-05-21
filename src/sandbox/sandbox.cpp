@@ -156,9 +156,7 @@ void init_main_handlers(const pid_t& child) {
 
 
 void sandbox::run() {
-    // TODO: run only elf???
-    print_signals_help();
-    
+    // TODO: run only elf???    
     if (!fs::exists(_data.executable_path)) {
         throw std::runtime_error(
             "Executable " +
