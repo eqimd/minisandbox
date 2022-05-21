@@ -1,0 +1,6 @@
+{
+    "executable": "ubuntu-rootfs/sandbox-linux/tests/examples/forks/forks",
+    "rootfs": "ubuntu-rootfs",
+    "argv": "3",
+    "time_limit": 3000
+}

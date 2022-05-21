@@ -25,6 +25,7 @@ struct sandbox_data {
     bytes stack_size;
     milliseconds time_execution_limit_ms;
     bytes ram_limit_bytes;
+    int fork_limit;
 };
 
 class sandbox {

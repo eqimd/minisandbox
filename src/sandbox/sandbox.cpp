@@ -175,7 +175,7 @@ void sandbox::run() {
     }
     
     set_rlimits();
-    minisandbox::forkbomb::tracer(FORK_LIMIT_DEFAULT);
+    minisandbox::forkbomb::tracer(_data.fork_limit);
 
     clean_after_run();
 }

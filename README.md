@@ -26,6 +26,7 @@ sudo apt-get install libgtest-dev
     "perm_flags": 0,
     "ram_limit": 102400,
     "stack_size": 102400,
-    "time_limit": 60
+    "time_limit": 60,
+    "fork_limit": 5
 }
 ```

@@ -1,0 +1,4 @@
+{
+    "executable": "ubuntu-rootfs/sandbox-linux/tests/examples/hello_world/hello",
+    "rootfs": "ubuntu-rootfs"
+}

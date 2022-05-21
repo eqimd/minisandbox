@@ -1,21 +1,7 @@
-#include <sys/ptrace.h>
-#include <sys/syscall.h>
 #include <sys/mman.h>
-
-#include <linux/seccomp.h>
-#include <linux/filter.h>
-#include <linux/audit.h>
-
 #include <unistd.h>
-#include <signal.h>
-#include <seccomp.h>
-
 #include <iostream>
-#include <thread>
 #include <vector>
-#include <optional>
-#include <atomic>
-#include <unordered_map>
 #include <cassert>
 #include <cstring>
 #include <functional>
@@ -35,7 +21,7 @@ bool tracee_rec(int forks_remaining, int sleep_time = 1) {
     if (pid != 0) {
         sleep(sleep_time);
     } else {
-        return tracee_rec(forks_remaining - 1);
+        return tracee_rec(forks_remaining - 1, sleep_time);
     }
     return false;
 }
