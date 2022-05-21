@@ -18,12 +18,13 @@
 #include <optional>
 #include <atomic>
 #include <unordered_map>
+#include <string.h>
+#include <signal.h>
 
 #include "bomb.h"
 
 
-constexpr int FORK_LIMIT_DEFAULT = 5;
-
+namespace minisandbox::forkbomb {
 
 struct pid_status {
     enum state {
@@ -36,7 +37,6 @@ struct pid_status {
     int lastsysno = 0;
 
     pid_status(pid_t pid_) : pid { pid_ }, current_st { k_after_sys_call } {
-        // std::cout << "TRACE NEW PID=" << pid << std::endl;
         ptrace(PTRACE_SETOPTIONS, 
                pid, 
                0, 
@@ -47,22 +47,27 @@ struct pid_status {
     }
 
     std::optional<user_regs_struct> handle_status(int status) {
-        if (current_st == k_after_sys_call) {
-            if ((status >> 8) == (SIGTRAP | (PTRACE_EVENT_SECCOMP << 8))) {
-                user_regs_struct regs;
-                ptrace(PTRACE_GETREGS, pid, 0, &regs);
-                current_st = k_before_sys_call;
-                lastsysno = regs.orig_rax;
-                return regs;
+        if (current_st == k_after_sys_call && (status >> 8) == (SIGTRAP | (PTRACE_EVENT_SECCOMP << 8))) {
+            user_regs_struct regs;
+            ptrace(PTRACE_GETREGS, pid, 0, &regs);
+            current_st = k_before_sys_call;
+            lastsysno = regs.orig_rax;
+            return regs;
+        } else if (WIFSTOPPED(status) && WSTOPSIG(status) & (1u << 7)) {
+            user_regs_struct regs;
+            ptrace(PTRACE_GETREGS, pid, 0, &regs);
+            current_st = k_after_sys_call;
+            return regs;
+        } else if (WIFSTOPPED(status)) {
+            if (WSTOPSIG(status) == SIGSEGV) {
+                throw std::runtime_error("SIGSEGV was thrown in child process");
             }
-        } else {
-            if (WIFSTOPPED(status) && WSTOPSIG(status) & (1u << 7)) {
-                user_regs_struct regs;
-                ptrace(PTRACE_GETREGS, pid, 0, &regs);
-                current_st = k_after_sys_call;
-                return regs;
+        } else if (WIFSIGNALED(status)) {
+            if (WTERMSIG(status) == SIGKILL) {
+                throw std::runtime_error("Process was killed");
             }
         }
+
         return std::nullopt;
     }
 
@@ -82,8 +87,13 @@ struct pid_status {
 };
 
 
-static void tracer(int fork_limit = FORK_LIMIT_DEFAULT) {
-    if (fork_limit < 0) std::runtime_error("wrong fork limit count");
+void tracer(int fork_limit) {
+    if (fork_limit < 0) {
+        throw std::runtime_error(
+            "Call to tracer() failed: fork_limit should not be less than zero, but it is " +
+            std::to_string(fork_limit)
+        );
+    }
     int fork_limit_left = fork_limit;
 
     std::unordered_map<pid_t, pid_status> tracees;
@@ -130,28 +140,24 @@ static void tracer(int fork_limit = FORK_LIMIT_DEFAULT) {
     }
 }
 
-
-int minisandbox::forkbomb::add_tracer() {
-    pid_t pid = fork();
-    if (pid == -1) {
-        std::cerr << "minisandbox::forkbomb::add_tracer failed" << std::endl;
+void make_tracee() {
+    errno = 0;
+    if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
+        throw std::runtime_error(
+            "Call to make_tracee() failed: ptrace(traceme) failed, " +
+            std::string(strerror(errno))
+        );
     }
-    if (pid != 0) {
-        tracer();
-    } else {
-        if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
-            throw std::runtime_error("minisandbox::forkbomb::add_tracer: ptrace(traceme) failed");
-        }
 
-        scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_ALLOW);
-        seccomp_rule_add(ctx, SCMP_ACT_TRACE(0), SYS_clone, 0);
-        seccomp_rule_add(ctx, SCMP_ACT_TRACE(0), SYS_fork, 0);
-        seccomp_load(ctx);
-        
-        /* Остановиться и дождаться, пока отладчик отреагирует. */
-        if (raise(SIGSTOP)) {
-            std::runtime_error("main: raise(SIGSTOP) failed");
-        }
+    scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_ALLOW);
+    seccomp_rule_add(ctx, SCMP_ACT_TRACE(0), SYS_clone, 0);
+    seccomp_rule_add(ctx, SCMP_ACT_TRACE(0), SYS_fork, 0);
+    seccomp_load(ctx);
+    
+    /* Остановиться и дождаться, пока отладчик отреагирует. */
+    if (raise(SIGSTOP)) {
+        std::runtime_error("main: raise(SIGSTOP) failed");
     }
-    return pid;
 }
+
+};
