@@ -31,8 +31,13 @@ int main(int argc, char* argv[]) {
         data.stack_size = config["stack_size"];
         data.time_execution_limit_ms = config["time_limit"];
 
-        data.priority = config["priority"];
-        data.io_priority = config["io_priority"];
+        if (config.find("priority") != config.end()) {
+            data.priority = config["priority"];
+        }
+
+        if (config.find("io_priority") != config.end()) {
+            data.io_priority = config["io_priority"];
+        }
 
         minisandbox::sandbox sb(data);
 

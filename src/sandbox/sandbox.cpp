@@ -224,11 +224,17 @@ void sandbox::clean_after_run() {
 
 void sandbox::set_priority() {
     if (_data.priority < -20 || _data.priority > 19) {
-        throw std::runtime_error("Wrong priority value");
+        throw std::runtime_error(
+            "Wrong priority value, it should be in interval [-20, 19], but it is " +
+            std::to_string( _data.priority)
+        );
     }
 
     if (_data.io_priority < 0 || _data.io_priority > 7) {
-        throw std::runtime_error("Wrong io_priority value");        
+        throw std::runtime_error(
+            "Wrong io_priority value, it should be in interval [0, 7], but it is " +
+            std::to_string( _data.io_priority)
+        );
     }
 
     errno = 0;

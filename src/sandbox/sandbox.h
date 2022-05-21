@@ -8,6 +8,9 @@ namespace fs = std::filesystem;
 using milliseconds = uint64_t;
 using bytes = uint64_t;
 
+const int PRIORITY_DEFAULT = 0;
+const int IO_PRIORITY_DEFAULT = 0;
+
 namespace minisandbox {
 
 struct sandbox_data {
@@ -19,8 +22,8 @@ struct sandbox_data {
     milliseconds time_execution_limit_ms;
     bytes ram_limit_bytes;
     bytes stack_size;
-    int priority;
-    int io_priority;
+    int priority = PRIORITY_DEFAULT;
+    int io_priority = IO_PRIORITY_DEFAULT;
 };
 
 class sandbox {
