@@ -7,12 +7,13 @@ Run with superuser privileges:
 ```
 
 ### Building
-You need to install some libraries to build minisandbox by yourself
+You need to install next libraries to build minisandbox by yourself
 ```bash
 sudo apt-get install nlohmann-json3-dev
 sudo apt-get install libboost-all-dev
 sudo apt-get install libseccomp-dev
 sudo apt-get install libcap-dev
+sudo apt-get install libgtest-dev
 ```
 
 ### Config sample
@@ -23,8 +24,8 @@ sudo apt-get install libcap-dev
     "envp": "",
     "rootfs": "ubuntu-rootfs",
     "perm_flags": 0,
-    "ram_limit": 10240,
-    "stack_size": 10240,
+    "ram_limit": 102400,
+    "stack_size": 102400,
     "time_limit": 60
 }
 ```
