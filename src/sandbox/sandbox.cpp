@@ -93,6 +93,7 @@ int enter_pivot_root(void* arg) {
 sandbox::sandbox(const sandbox_data& sb_data) {
     _data = sb_data;
     _data.executable_path = fs::absolute(_data.executable_path);
+    _data.rootfs_path = fs::absolute(_data.rootfs_path);
     _data.argv.insert(_data.argv.begin(), _data.executable_path.filename());
 
     if (sb_data.ram_limit_bytes != RAM_VALUE_NO_LIMIT) {
