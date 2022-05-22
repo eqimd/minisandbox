@@ -23,7 +23,6 @@ sudo apt-get install libgtest-dev
     "argv": "",
     "envp": "",
     "rootfs": "ubuntu-rootfs",
-    "perm_flags": 0,
     "ram_limit": 102400,
     "stack_size": 102400,
     "time_limit": 60,

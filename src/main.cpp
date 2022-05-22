@@ -34,7 +34,6 @@ int main(int argc, char* argv[]) {
         boost::split(data.argv, argv_config, boost::is_any_of(" "));
         boost::split(data.envp, envp_config, boost::is_any_of(" "));
 
-        data.perm_flags = config.value("perm_flags", 0);
         data.ram_limit_bytes = config.value("ram_limit", RAW_LIMIT);
         data.stack_size = config.value("stack_size", STACK_SIZE);
         data.time_execution_limit_ms = config.value("time_limit", TIME_LIMIT_MS);
