@@ -2,8 +2,6 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <iostream>
-#include <boost/algorithm/string/split.hpp>
-#include <boost/algorithm/string/classification.hpp>
 
 #include "bomb/bomb.h"
 
@@ -24,10 +22,10 @@ int main(int argc, char* argv[]) {
         data.executable_path = std::string(config["executable"]);
         data.rootfs_path = std::string(config["rootfs"]);
 
-        std::string argv_config = config.value("argv", "");
-        std::string envp_config = config.value("envp", "");
-        boost::split(data.argv, argv_config, boost::is_any_of(" "));
-        boost::split(data.envp, envp_config, boost::is_any_of(" "));
+        auto argv = config.value("argv", nlohmann::basic_json<>());
+        auto envp = config.value("envp", nlohmann::basic_json<>());
+        data.argv.insert(data.argv.end(), argv.begin(), argv.end());
+        data.envp.insert(data.envp.end(), envp.begin(), envp.end());
 
         data.ram_limit_bytes = config.value("ram_limit", RAM_VALUE_NO_LIMIT);
         data.stack_size = config.value("stack_size", STACK_DEFAULT_VALUE);

@@ -10,7 +10,6 @@ Run with superuser privileges:
 You need to install next libraries to build minisandbox by yourself
 ```bash
 sudo apt-get install nlohmann-json3-dev
-sudo apt-get install libboost-all-dev
 sudo apt-get install libseccomp-dev
 sudo apt-get install libcap-dev
 sudo apt-get install libgtest-dev
@@ -20,8 +19,8 @@ sudo apt-get install libgtest-dev
 ```json
 {
     "executable": "ubuntu-rootfs/bin/bash",
-    "argv": "",
-    "envp": "",
+    "argv": [""],
+    "envp": [""],
     "rootfs": "ubuntu-rootfs",
     "ram_limit": 102400,
     "stack_size": 102400,
