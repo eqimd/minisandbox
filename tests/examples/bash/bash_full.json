@@ -1,7 +1,7 @@
 {
     "executable": "ubuntu-rootfs/bin/bash",
-    "argv": "",
-    "envp": "",
+    "argv": [""],
+    "envp": [""],
     "rootfs": "ubuntu-rootfs",
     "ram_limit": 100000000,
     "stack_size": 100000000,

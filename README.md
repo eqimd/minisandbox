@@ -22,9 +22,9 @@ sudo apt-get install libgtest-dev
     "argv": [""],
     "envp": [""],
     "rootfs": "ubuntu-rootfs",
-    "ram_limit": 102400,
-    "stack_size": 102400,
-    "time_limit": 60,
+    "ram_limit": 100000000,
+    "stack_size": 100000000,
+    "time_limit": 1000,
     "fork_limit": 5
 }
 ```
