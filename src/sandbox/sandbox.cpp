@@ -17,8 +17,6 @@
 #include "empowerment/empowerment.h"
 #include "bomb/bomb.h"
 
-constexpr char* PUT_OLD = ".put_old";
-constexpr char* MINISANDBOX_EXEC = ".minisandbox_exec";
 
 namespace minisandbox {
 
@@ -90,9 +88,13 @@ int enter_pivot_root(void* arg) {
 sandbox::sandbox(const sandbox_data& sb_data) {
     _data = sb_data;
     _data.executable_path = fs::absolute(_data.executable_path);
-  
-    rlimits.push_back({RLIMIT_AS, {sb_data.ram_limit_bytes, sb_data.ram_limit_bytes}});
-    rlimits.push_back({RLIMIT_CPU, {sb_data.time_execution_limit_ms / 1000, sb_data.time_execution_limit_ms / 1000}}); //potentially zero
+
+    if (sb_data.ram_limit_bytes != RAM_VALUE_NO_LIMIT) {
+        rlimits.push_back({RLIMIT_AS, {sb_data.ram_limit_bytes, sb_data.ram_limit_bytes}});
+    }
+    if (sb_data.time_execution_limit_ms != TIME_VALUE_NO_LIMIT) {
+        rlimits.push_back({RLIMIT_CPU, {sb_data.time_execution_limit_ms / 1000, sb_data.time_execution_limit_ms / 1000}}); //potentially zero
+    }
 }
 
 sandbox::~sandbox() {

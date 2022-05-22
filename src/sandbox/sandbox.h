@@ -9,6 +9,15 @@ namespace fs = std::filesystem;
 using milliseconds = uint64_t;
 using bytes = uint64_t;
 
+constexpr int STACK_DEFAULT_VALUE = 1024 * 1024 * 4;    // 4 mb
+
+constexpr int RAM_VALUE_NO_LIMIT = 0;
+constexpr int TIME_VALUE_NO_LIMIT = 0;
+constexpr int FORK_VALUE_NO_LIMIT = -1;
+
+constexpr char* PUT_OLD = ".put_old";
+constexpr char* MINISANDBOX_EXEC = ".minisandbox_exec";
+
 namespace minisandbox {
 
 struct sandbox_rlimit {

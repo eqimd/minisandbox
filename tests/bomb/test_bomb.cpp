@@ -8,6 +8,8 @@
 
 #include "../../src/bomb/bomb.h"
 
+constexpr int FORK_LIMIT_TESTS = 5;
+
 
 bool tracee_rec(int forks_remaining, int sleep_time = 1) {
     if (forks_remaining == 0) {
@@ -41,7 +43,7 @@ bool tracee_cycle(int forks_remaining, int sleep_time = 1) {
 }
 
 
-void template_for_test(std::vector<std::function<bool()>> vec_f, int fork_lim = FORK_LIMIT_DEFAULT, bool failed = false) {
+void template_for_test(std::vector<std::function<bool()>> vec_f, int fork_lim = FORK_LIMIT_TESTS, bool failed = false) {
     errno = 0;
     void* _pointer_to = mmap(NULL, sizeof(bool), PROT_WRITE|PROT_READ, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
     if (_pointer_to == MAP_FAILED)
