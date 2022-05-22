@@ -19,7 +19,7 @@ echo bomb
 # empowerment
 cd ../../tests/empowerment
 echo empowerment
-sudo bash ./test_empowerment.sh
+bash ./test_empowerment.sh
 cd ..
 
 # ...

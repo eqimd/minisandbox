@@ -28,4 +28,4 @@ jobs:
 
       - name: build and run tests
         run: |
-          bash run_tests.sh
+          sudo bash run_tests.sh
