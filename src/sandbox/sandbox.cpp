@@ -49,7 +49,11 @@ int enter_pivot_root(void* arg) {
 
     minisandbox::empowerment::drop_privileges();
     
-    minisandbox::forkbomb::make_tracee();
+    if (data->fork_limit >= 0) {
+        minisandbox::forkbomb::make_tracee();
+    } else {
+        // minisandbox::forkbomb::set_filters();
+    } 
 
     std::vector<const char*> argv;
     std::transform(
@@ -177,7 +181,11 @@ void sandbox::run() {
     }
     
     set_rlimits();
-    minisandbox::forkbomb::tracer(_data.fork_limit);
+    if (_data.fork_limit >= 0) {
+        minisandbox::forkbomb::tracer(_data.fork_limit);
+    } else {
+        waitpid(child_pid, NULL, 0);
+    }
 
     clean_after_run();
 }

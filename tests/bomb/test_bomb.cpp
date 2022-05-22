@@ -143,5 +143,5 @@ int main() {
     test_scenario_fail();
     std::cout << "test_scenario_fail passed" << std::endl;
 
-    std::cout << std::endl << "all tests passed" << std::endl;
+    std::cout << std::endl << "all bomb tests passed" << std::endl;
 }

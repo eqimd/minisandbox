@@ -20,6 +20,7 @@
 #include <unordered_map>
 #include <string.h>
 #include <signal.h>
+#include <string>
 
 #include "bomb.h"
 
@@ -123,6 +124,7 @@ void tracer(int fork_limit) {
                 auto st = *regs;
                 if (pid_state.lastsysno == SYS_clone || pid_state.lastsysno == SYS_fork) {
                     if (fork_limit_left <= 0) {
+                        std::cerr << "Executable tried to fork " << fork_limit + 1 << " times, but it is allowed to fork only " << fork_limit << " times" << std::endl;
                         st.orig_rax = -1;
                         pid_state.set_registers(st);
                     }
@@ -140,6 +142,13 @@ void tracer(int fork_limit) {
     }
 }
 
+void set_filters() {
+    scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_ALLOW);
+    seccomp_rule_add(ctx, SCMP_ACT_TRACE(0), SYS_clone, 0);
+    seccomp_rule_add(ctx, SCMP_ACT_TRACE(0), SYS_fork, 0);
+    seccomp_load(ctx);
+}
+
 void make_tracee() {
     errno = 0;
     if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
@@ -149,10 +158,7 @@ void make_tracee() {
         );
     }
 
-    scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_ALLOW);
-    seccomp_rule_add(ctx, SCMP_ACT_TRACE(0), SYS_clone, 0);
-    seccomp_rule_add(ctx, SCMP_ACT_TRACE(0), SYS_fork, 0);
-    seccomp_load(ctx);
+    set_filters();
     
     /* Остановиться и дождаться, пока отладчик отреагирует. */
     if (raise(SIGSTOP)) {
