@@ -43,7 +43,6 @@ void child_kill_handler(int signum) {
 void init_child_signal_handlers() {
     signal(SIGINT, child_kill_handler);
     signal(SIGTERM, child_kill_handler);
-    signal(SIGSTOP, child_kill_handler);
 }
 
 int enter_pivot_root(void* arg) {
@@ -147,28 +146,37 @@ void cont_handler(int signal) { cont_child(signal); }
 
 void print_signals_help() {
     std::cout << "To kill app in sandbox send SIGINT or SIGTERM signal to main process, (pid: " << getpid() << ")" << std::endl;
-    std::cout << "To stop app in sandbox send SIGTSTP signal to main process, (pid: " << getpid() << ")" << std::endl;
-    std::cout << "To continue app in sandbox send SIGCONT signal to main process, (pid: " << getpid() << ")" << std::endl;
+    std::cout << "To stop app in sandbox send SIGUSR1 signal to main process, (pid: " << getpid() << ")" << std::endl;
+    std::cout << "To continue app in sandbox send SIGUSR2 signal to main process, (pid: " << getpid() << ")" << std::endl;
 }
 
 
 void init_main_handlers(const pid_t& child) {
+    setpgid(child, 0);
     kill_child = [&child](int signum) { 
         kill(-getpgid(child), SIGKILL);
     };
 
     stop_child = [&child](int signum) { 
-        kill(-getpgid(child), SIGSTOP);
+        errno = 0;
+        kill(-getpgid(child), SIGUSR1);
+        if (errno != 0) {
+            std::cout << strerror(errno) << "\n";
+        }
     };
 
     cont_child = [&child](int signum) { 
-        kill(-getpgid(child), SIGCONT);
+        errno = 0;
+        kill(-getpgid(child), SIGUSR2);
+        if (errno != 0) {
+            std::cout << strerror(errno) << "\n";
+        }
     };
 
     signal(SIGINT, kill_handler);
     signal(SIGTERM, kill_handler);
-    signal(SIGTSTP, stop_handler);
-    signal(SIGCONT, cont_handler);
+    signal(SIGUSR1, stop_handler);
+    signal(SIGUSR2, cont_handler);
 }
 
 
@@ -247,6 +255,7 @@ void sandbox::run() {
     }
     init_main_handlers(child_pid);
     
+    init_main_handlers(child_pid);
     set_rlimits();
     if (_data.fork_limit >= 0) {
         minisandbox::forkbomb::tracer(_data.fork_limit);
