@@ -23,9 +23,6 @@
 #define IOPRIO_CLASS_SHIFT	(13)
 #define IOPRIO_PRIO_VALUE(class, data)	(((class) << IOPRIO_CLASS_SHIFT) | data)
 
-constexpr char* PUT_OLD = ".put_old";
-constexpr char* MINISANDBOX_EXEC = ".minisandbox_exec";
-
 namespace minisandbox {
 
 int enter_pivot_root(void* arg) {

@@ -32,13 +32,8 @@ int main(int argc, char* argv[]) {
         data.time_execution_limit_ms = config.value("time_limit", TIME_VALUE_NO_LIMIT);
         data.fork_limit = config.value("fork_limit", FORK_VALUE_NO_LIMIT);
 
-        if (config.find("priority") != config.end()) {
-            data.priority = config["priority"];
-        }
-
-        if (config.find("io_priority") != config.end()) {
-            data.io_priority = config["io_priority"];
-        }
+        data.priority = config.value("priority", PRIORITY_DEFAULT);
+        data.io_priority = config.value("io_priority", IO_PRIORITY_DEFAULT);
 
         minisandbox::sandbox sb(data);
 
