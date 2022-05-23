@@ -1,0 +1,4 @@
+{
+    "executable": "ubuntu-rootfs/bin/bash",
+    "rootfs": "ubuntu-rootfs"
+}

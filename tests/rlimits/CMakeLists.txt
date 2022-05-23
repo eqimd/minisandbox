@@ -1,3 +1,5 @@
+set(CMAKE_CXX_STANDARD 20)
+
 add_subdirectory(mem)
 add_subdirectory(time)
 

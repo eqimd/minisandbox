@@ -4,3 +4,4 @@ set(test_libs
 )
 
 add_subdirectory(rlimits)
+add_subdirectory(bomb)

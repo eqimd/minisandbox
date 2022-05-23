@@ -2,8 +2,9 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <iostream>
-#include <boost/algorithm/string/split.hpp>
-#include <boost/algorithm/string/classification.hpp>
+
+#include "bomb/bomb.h"
+
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -21,15 +22,15 @@ int main(int argc, char* argv[]) {
         data.executable_path = std::string(config["executable"]);
         data.rootfs_path = std::string(config["rootfs"]);
 
-        std::string argv_config = config["argv"];
-        std::string envp_config = config["envp"];
-        boost::split(data.argv, argv_config, boost::is_any_of(" "));
-        boost::split(data.envp, envp_config, boost::is_any_of(" "));
+        auto argv = config.value("argv", nlohmann::basic_json<>());
+        auto envp = config.value("envp", nlohmann::basic_json<>());
+        data.argv.insert(data.argv.end(), argv.begin(), argv.end());
+        data.envp.insert(data.envp.end(), envp.begin(), envp.end());
 
-        data.perm_flags = config["perm_flags"];
-        data.ram_limit_bytes = config["ram_limit"];
-        data.stack_size = config["stack_size"];
-        data.time_execution_limit_ms = config["time_limit"];
+        data.ram_limit_bytes = config.value("ram_limit", RAM_VALUE_NO_LIMIT);
+        data.stack_size = config.value("stack_size", STACK_DEFAULT_VALUE);
+        data.time_execution_limit_ms = config.value("time_limit", TIME_VALUE_NO_LIMIT);
+        data.fork_limit = config.value("fork_limit", FORK_VALUE_NO_LIMIT);
 
         if (config.find("priority") != config.end()) {
             data.priority = config["priority"];

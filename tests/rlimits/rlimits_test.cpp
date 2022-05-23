@@ -14,7 +14,6 @@ TEST(RlimitsTest, MemTest) {
     data.executable_path = std::string("mem/mem");
     data.rootfs_path = std::string(rootfs);
 
-    data.perm_flags = 0;
     data.ram_limit_bytes = ram;
     data.stack_size = stack;
     data.time_execution_limit_ms = 10000;
@@ -28,7 +27,6 @@ TEST(RlimitsTest, TimeTest) {
     data.executable_path = std::string("time/time");
     data.rootfs_path = std::string(rootfs);
 
-    data.perm_flags = 0;
     data.ram_limit_bytes = ram;
     data.stack_size = stack;
     data.time_execution_limit_ms = 1000;

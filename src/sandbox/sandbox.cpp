@@ -57,32 +57,37 @@ int enter_pivot_root(void* arg) {
 
     minisandbox::empowerment::drop_privileges();
     
-    minisandbox::forkbomb::make_tracee();
+    if (data->fork_limit >= 0) {
+        minisandbox::forkbomb::make_tracee();
+    } else {
+        // minisandbox::forkbomb::set_filters();
+    }
 
-    std::vector<const char*> argv;
+    std::vector<char*> cargv;
+    cargv.reserve(data->argv.size() + 1);
     std::transform(
-        data->argv.begin(),
+        data->argv.begin(), 
         data->argv.end(),
-        std::back_inserter(argv),
-        [](const std::string& s) {
-            return s.c_str();
+        std::back_inserter(cargv),
+        [](const std::string& s){
+            return const_cast<char*>(s.c_str());
         }
     );
-    std::vector<const char*> envp;
-    std::transform(
-        data->envp.begin(),
-        data->envp.end(),
-        std::back_inserter(envp),
-        [](const std::string& s) {
-            return s.c_str();
-        }
-    );
+    cargv.push_back(NULL);
 
-    char* const* argv_casted = const_cast<char**>(argv.data());
-    char* const* envp_casted = const_cast<char**>(envp.data());
+    std::vector<char*> cenvp;
+    cenvp.reserve(data->envp.size());
+    std::transform(
+        data->envp.begin(), 
+        data->envp.end(),
+        std::back_inserter(cenvp),
+        [](const std::string& s){
+            return const_cast<char*>(s.c_str());
+        }
+    );
 
     errno = 0;
-    if (execvpe(data->executable_path.c_str(), argv_casted, envp_casted) == -1) {
+    if (execvpe(data->executable_path.c_str(), cargv.data(), cenvp.data()) == -1) {
         throw std::runtime_error(
             "Could not execute " +
             data->executable_path.string() + ": " +
@@ -96,9 +101,15 @@ int enter_pivot_root(void* arg) {
 sandbox::sandbox(const sandbox_data& sb_data) {
     _data = sb_data;
     _data.executable_path = fs::absolute(_data.executable_path);
-  
-    rlimits.push_back({RLIMIT_AS, {sb_data.ram_limit_bytes, sb_data.ram_limit_bytes}});
-    rlimits.push_back({RLIMIT_CPU, {sb_data.time_execution_limit_ms / 1000, sb_data.time_execution_limit_ms / 1000}}); //potentially zero
+    _data.rootfs_path = fs::absolute(_data.rootfs_path);
+    _data.argv.insert(_data.argv.begin(), _data.executable_path.filename());
+
+    if (sb_data.ram_limit_bytes != RAM_VALUE_NO_LIMIT) {
+        rlimits.push_back({RLIMIT_AS, {sb_data.ram_limit_bytes, sb_data.ram_limit_bytes}});
+    }
+    if (sb_data.time_execution_limit_ms != TIME_VALUE_NO_LIMIT) {
+        rlimits.push_back({RLIMIT_CPU, {sb_data.time_execution_limit_ms / 1000, sb_data.time_execution_limit_ms / 1000}}); //potentially zero
+    }
 }
 
 sandbox::~sandbox() {
@@ -182,7 +193,11 @@ void sandbox::run() {
     }
     
     set_rlimits();
-    minisandbox::forkbomb::tracer(FORK_LIMIT_DEFAULT);
+    if (_data.fork_limit >= 0) {
+        minisandbox::forkbomb::tracer(_data.fork_limit);
+    } else {
+        waitpid(child_pid, NULL, 0);
+    }
 
     clean_after_run();
 }

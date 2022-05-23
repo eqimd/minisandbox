@@ -1,26 +1,14 @@
-#include <sys/ptrace.h>
-#include <sys/syscall.h>
 #include <sys/mman.h>
-
-#include <linux/seccomp.h>
-#include <linux/filter.h>
-#include <linux/audit.h>
-
 #include <unistd.h>
-#include <signal.h>
-#include <seccomp.h>
-
 #include <iostream>
-#include <thread>
 #include <vector>
-#include <optional>
-#include <atomic>
-#include <unordered_map>
 #include <cassert>
 #include <cstring>
 #include <functional>
 
 #include "../../src/bomb/bomb.h"
+
+constexpr int FORK_LIMIT_TESTS = 5;
 
 
 bool tracee_rec(int forks_remaining, int sleep_time = 1) {
@@ -35,7 +23,7 @@ bool tracee_rec(int forks_remaining, int sleep_time = 1) {
     if (pid != 0) {
         sleep(sleep_time);
     } else {
-        return tracee_rec(forks_remaining - 1);
+        return tracee_rec(forks_remaining - 1, sleep_time);
     }
     return false;
 }
@@ -55,7 +43,7 @@ bool tracee_cycle(int forks_remaining, int sleep_time = 1) {
 }
 
 
-void template_for_test(std::vector<std::function<bool()>> vec_f, int fork_lim = FORK_LIMIT_DEFAULT, bool failed = false) {
+void template_for_test(std::vector<std::function<bool()>> vec_f, int fork_lim = FORK_LIMIT_TESTS, bool failed = false) {
     errno = 0;
     void* _pointer_to = mmap(NULL, sizeof(bool), PROT_WRITE|PROT_READ, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
     if (_pointer_to == MAP_FAILED)
@@ -155,5 +143,5 @@ int main() {
     test_scenario_fail();
     std::cout << "test_scenario_fail passed" << std::endl;
 
-    std::cout << std::endl << "all tests passed" << std::endl;
+    std::cout << std::endl << "all bomb tests passed" << std::endl;
 }
