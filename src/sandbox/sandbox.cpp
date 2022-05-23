@@ -8,6 +8,7 @@
 #include <signal.h>
 #include <iostream>
 #include <fstream>
+#include <sys/resource.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <vector>
@@ -17,6 +18,10 @@
 #include "empowerment/empowerment.h"
 #include "bomb/bomb.h"
 
+#define IOPRIO_WHO_PGRP     (2)
+#define IOPRIO_CLASS_RT     (1)
+#define IOPRIO_CLASS_SHIFT	(13)
+#define IOPRIO_PRIO_VALUE(class, data)	(((class) << IOPRIO_CLASS_SHIFT) | data)
 
 namespace minisandbox {
 
@@ -168,6 +173,7 @@ void sandbox::run() {
     _data.executable_path = exec_in_sandbox;
 
     mount_to_new_root(NULL, "/", MS_PRIVATE | MS_REC);
+    set_priority();
 
     errno = 0;
     child_pid = clone(
@@ -244,6 +250,39 @@ void sandbox::set_rlimits() {
         if (ret < 0) {
             throw std::runtime_error("Error while setting rlimits: " + std::string(strerror(errno)));
         }
+    }
+}
+
+void sandbox::set_priority() {
+    if (_data.priority < -20 || _data.priority > 19) {
+        throw std::runtime_error(
+            "Wrong priority value, it should be in interval [-20, 19], but it is " +
+            std::to_string( _data.priority)
+        );
+    }
+
+    if (_data.io_priority < 0 || _data.io_priority > 7) {
+        throw std::runtime_error(
+            "Wrong io_priority value, it should be in interval [0, 7], but it is " +
+            std::to_string( _data.io_priority)
+        );
+    }
+
+    errno = 0;
+    setpriority(PRIO_PGRP, getpgid(getpid()), _data.priority);
+    if (errno != 0) {
+        throw std::runtime_error(
+            "Could not set priority: " +
+            std::string(strerror(errno))
+        );
+    }
+
+    errno = 0;
+    if (syscall(SYS_ioprio_set, IOPRIO_WHO_PGRP, getpgid(getpid()), IOPRIO_PRIO_VALUE(IOPRIO_CLASS_RT, _data.io_priority)) == -1) {
+        throw std::runtime_error(
+            "Could not set io_priority: " +
+            std::string(strerror(errno))
+        );
     }
 }
 

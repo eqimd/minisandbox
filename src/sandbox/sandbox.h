@@ -9,6 +9,9 @@ namespace fs = std::filesystem;
 using milliseconds = uint64_t;
 using bytes = uint64_t;
 
+constexpr int PRIORITY_DEFAULT = 0;
+constexpr int IO_PRIORITY_DEFAULT = 0;
+
 constexpr int STACK_DEFAULT_VALUE = 1024 * 1024 * 4;    // 4 mb
 
 constexpr int RAM_VALUE_NO_LIMIT = 0;
@@ -33,6 +36,8 @@ struct sandbox_data {
     bytes stack_size;
     milliseconds time_execution_limit_ms;
     bytes ram_limit_bytes;
+    int priority = PRIORITY_DEFAULT;
+    int io_priority = IO_PRIORITY_DEFAULT;
     int fork_limit;
 };
 
@@ -54,6 +59,7 @@ private:
     void bind_new_root(const char* new_root);
     void set_rlimits();
     void clean_after_run();
+    void set_priority();
 
     pid_t child_pid;
 
