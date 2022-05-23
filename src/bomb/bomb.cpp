@@ -89,12 +89,6 @@ struct pid_status {
 
 
 void tracer(int fork_limit) {
-    if (fork_limit < 0) {
-        throw std::runtime_error(
-            "Call to tracer() failed: fork_limit should not be less than zero, but it is " +
-            std::to_string(fork_limit)
-        );
-    }
     int fork_limit_left = fork_limit;
 
     std::unordered_map<pid_t, pid_status> tracees;
