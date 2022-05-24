@@ -14,6 +14,7 @@
 #include <vector>
 #include <sys/ptrace.h>
 #include <sys/param.h>
+#include <functional>
 #include "sandbox.h"
 #include "empowerment/empowerment.h"
 #include "bomb/bomb.h"
@@ -25,7 +26,25 @@
 
 namespace minisandbox {
 
+void prepare_procfs() {
+    fs::create_directories("/proc");
+
+    if (mount("proc", "/proc", "proc", 0, "")) {
+        throw std::runtime_error("Could not mount /proc : " + std::string(strerror(errno)));
+    }
+}
+
+void child_kill_handler(int signum) {
+   std::cerr << "Interrupt signal to sandbox received." << std::endl;
+}
+
+void init_child_signal_handlers() {
+    signal(SIGINT, child_kill_handler);
+    signal(SIGTERM, child_kill_handler);
+}
+
 int enter_pivot_root(void* arg) {
+    init_child_signal_handlers();
     fs::create_directories(PUT_OLD);
     
     errno = 0;
@@ -36,6 +55,8 @@ int enter_pivot_root(void* arg) {
         );
     }    
     fs::current_path("/");
+
+    prepare_procfs();
 
     errno = 0;
     if (umount2(PUT_OLD, MNT_DETACH) == -1) {
@@ -53,7 +74,7 @@ int enter_pivot_root(void* arg) {
     }
 
     minisandbox::empowerment::drop_privileges();
-    
+
     if (data->fork_limit >= 0) {
         minisandbox::forkbomb::make_tracee();
     } else {
@@ -113,6 +134,44 @@ sandbox::~sandbox() {
     try {
         clean_after_run();
     } catch (...) {}
+}
+
+std::function<void(int)> kill_child, stop_child, cont_child;
+void kill_handler(int signal) { kill_child(signal); }
+void stop_handler(int signal) { stop_child(signal); }
+void cont_handler(int signal) { cont_child(signal); }
+
+void print_signals_help() {
+    std::cout << "To kill app in sandbox send SIGINT or SIGTERM signal to main process, (pid: " << getpid() << ")" << std::endl;
+    std::cout << "To stop app in sandbox send SIGUSR1 signal to main process, (pid: " << getpid() << ")" << std::endl;
+    std::cout << "To continue app in sandbox send SIGUSR2 signal to main process, (pid: " << getpid() << ")" << std::endl;
+}
+
+void init_main_handlers(const pid_t& child) {
+    kill_child = [&child](int signum) { 
+        kill(-getpgid(child), SIGKILL);
+    };
+
+    stop_child = [&child](int signum) { 
+        errno = 0;
+        kill(-getpgid(child), SIGSTOP);
+        if (errno != 0) {
+            std::cerr << "Problems with stop : " << strerror(errno) << "\n";
+        }
+    };
+
+    cont_child = [&child](int signum) { 
+        errno = 0;
+        kill(-getpgid(child), SIGCONT);
+        if (errno != 0) {
+            std::cout << "Problems with continue : "  << strerror(errno) << "\n";
+        }
+    };
+
+    signal(SIGINT, kill_handler);
+    signal(SIGTERM, kill_handler);
+    signal(SIGUSR1, stop_handler);
+    signal(SIGUSR2, cont_handler);
 }
 
 void sandbox::run() {
@@ -179,7 +238,7 @@ void sandbox::run() {
     child_pid = clone(
         enter_pivot_root,
         stack_top,
-        CLONE_NEWNS | CLONE_NEWPID | SIGCHLD,
+        CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWPID | SIGCHLD,
         reinterpret_cast<void*>(&_data)
     );
     if (child_pid == -1) {
@@ -189,6 +248,8 @@ void sandbox::run() {
         );
     }
     
+    init_main_handlers(child_pid);
+
     set_rlimits();
     if (_data.fork_limit >= 0) {
         minisandbox::forkbomb::tracer(_data.fork_limit);
