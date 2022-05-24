@@ -161,7 +161,7 @@ void init_main_handlers(const pid_t& child) {
         errno = 0;
         kill(-getpgid(child), SIGUSR1);
         if (errno != 0) {
-            std::cout << strerror(errno) << "\n";
+            std::cerr << "Problems with stopping child " << strerror(errno) << "\n";
         }
     };
 
@@ -169,7 +169,7 @@ void init_main_handlers(const pid_t& child) {
         errno = 0;
         kill(-getpgid(child), SIGUSR2);
         if (errno != 0) {
-            std::cout << strerror(errno) << "\n";
+            std::cerr << "Problems with continuing child " << strerror(errno) << "\n";
         }
     };
 
