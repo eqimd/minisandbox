@@ -1,5 +1,5 @@
 {
-    "executable": "bash",
+    "executable": "kill_parent.sh",
     "argv": "",
     "envp": "",
     "rootfs": "../../rootfs",

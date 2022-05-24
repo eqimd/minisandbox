@@ -254,8 +254,7 @@ void sandbox::run() {
         );
     }
     init_main_handlers(child_pid);
-    
-    init_main_handlers(child_pid);
+
     set_rlimits();
     if (_data.fork_limit >= 0) {
         minisandbox::forkbomb::tracer(_data.fork_limit);

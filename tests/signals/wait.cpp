@@ -2,9 +2,8 @@
 #include <iostream>
 
 int main() {
-    pid_t pid = fork();
     while(true) {
-        std::cout << "Pid: " << getpid() << " doing something\n";
+        std::cout << "doing something\n";
         usleep(1000000);
     }
     return 0;
