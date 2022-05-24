@@ -104,8 +104,8 @@ sandbox::sandbox(const sandbox_data& sb_data) {
     if (sb_data.ram_limit_bytes != RAM_VALUE_NO_LIMIT) {
         rlimits.push_back({RLIMIT_AS, {sb_data.ram_limit_bytes, sb_data.ram_limit_bytes}});
     }
-    if (sb_data.time_execution_limit_ms != TIME_VALUE_NO_LIMIT) {
-        rlimits.push_back({RLIMIT_CPU, {sb_data.time_execution_limit_ms / 1000, sb_data.time_execution_limit_ms / 1000}}); //potentially zero
+    if (sb_data.time_execution_limit_s != TIME_VALUE_NO_LIMIT) {
+        rlimits.push_back({RLIMIT_CPU, {sb_data.time_execution_limit_s, sb_data.time_execution_limit_s}});
     }
 }
 
