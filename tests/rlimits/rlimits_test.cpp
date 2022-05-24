@@ -16,7 +16,7 @@ TEST(RlimitsTest, MemTest) {
 
     data.ram_limit_bytes = ram;
     data.stack_size = stack;
-    data.time_execution_limit_ms = 10000;
+    data.time_execution_limit_s = 10;
 
     minisandbox::sandbox sb(data);
     ASSERT_THROW(sb.run(), std::runtime_error);
@@ -29,7 +29,7 @@ TEST(RlimitsTest, TimeTest) {
 
     data.ram_limit_bytes = ram;
     data.stack_size = stack;
-    data.time_execution_limit_ms = 1000;
+    data.time_execution_limit_s = 1;
 
     minisandbox::sandbox sb(data);
     ASSERT_THROW(sb.run(), std::runtime_error);

@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
 
         data.ram_limit_bytes = config.value("ram_limit", RAM_VALUE_NO_LIMIT);
         data.stack_size = config.value("stack_size", STACK_DEFAULT_VALUE);
-        data.time_execution_limit_ms = config.value("time_limit", TIME_VALUE_NO_LIMIT);
+        data.time_execution_limit_s = config.value("time_limit", TIME_VALUE_NO_LIMIT);
         data.fork_limit = config.value("fork_limit", FORK_VALUE_NO_LIMIT);
 
         data.priority = config.value("priority", PRIORITY_DEFAULT);

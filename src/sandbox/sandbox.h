@@ -34,7 +34,7 @@ struct sandbox_data {
     std::vector<std::string> argv;
     std::vector<std::string> envp;
     bytes stack_size;
-    milliseconds time_execution_limit_ms;
+    milliseconds time_execution_limit_s;
     bytes ram_limit_bytes;
     int priority = PRIORITY_DEFAULT;
     int io_priority = IO_PRIORITY_DEFAULT;
