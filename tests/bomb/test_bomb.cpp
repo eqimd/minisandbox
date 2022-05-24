@@ -104,7 +104,9 @@ void test_simple_fail() {
 void test_scenario_succ() {
     template_for_test({
         []{ return tracee_rec(5, 1); }, 
+        []{ sleep(2); return true; }, 
         []{ return tracee_rec(5, 1); },
+        []{ sleep(2); return true; }, 
         []{ return tracee_rec(5, 1); } 
     }, 5);
     template_for_test({
@@ -119,7 +121,9 @@ void test_scenario_succ() {
 void test_scenario_fail() {
     template_for_test({
         []{ return tracee_rec(5, 1); }, 
-        []{ return tracee_rec(5, 1); }, 
+        []{ sleep(2); return true; }, 
+        []{ return tracee_rec(5, 1); },
+        []{ sleep(2); return true; },  
         []{ return tracee_rec(6, 1); }, 
     }, 5, true);
     template_for_test({
