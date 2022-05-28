@@ -1,0 +1,5 @@
+{
+    "executable": "nice",
+    "rootfs": "../../../rootfs",
+    "priority": 4
+}
